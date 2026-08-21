@@ -2,67 +2,74 @@ import express from 'express';
 import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
 import path from 'node:path';
-import { siteConfig } from '../../config/default.js';
 import { registerCoreRoutes } from '../controllers/routes.js';
-import { findUserById, getGroup, isOobeRequired } from '../services/user.service.js';
+import { registerCoreServices } from './core-services.js';
 import { db, runMigrations } from './database.js';
 import { HookSystem } from './hook-system.js';
 import { PluginManager } from './plugin-manager.js';
 import { RouterCollector } from './router-collector.js';
-
-type SessionCallback = (error?: Error | null, session?: session.SessionData | null) => void;
-class SQLiteSessionStore extends session.Store {
-  get(sid: string, callback: SessionCallback): void {
-    try {
-      const row = db.prepare('SELECT sess, expired FROM sessions WHERE sid=?').get(sid) as { sess: string; expired: number } | undefined;
-      if (!row || row.expired <= Date.now()) return callback(null, null);
-      callback(null, JSON.parse(row.sess) as session.SessionData);
-    } catch (error) { callback(error as Error); }
-  }
-  set(sid: string, sess: session.SessionData, callback: (error?: Error | null) => void): void {
-    try {
-      const expires = sess.cookie?.expires ? new Date(sess.cookie.expires).getTime() : Date.now() + 86400000;
-      db.prepare('INSERT INTO sessions(sid,sess,expired) VALUES(?,?,?) ON CONFLICT(sid) DO UPDATE SET sess=excluded.sess, expired=excluded.expired').run(sid, JSON.stringify(sess), expires);
-      callback(null);
-    } catch (error) { callback(error as Error); }
-  }
-  destroy(sid: string, callback: (error?: Error | null) => void): void { try { db.prepare('DELETE FROM sessions WHERE sid=?').run(sid); callback(null); } catch (error) { callback(error as Error); } }
-  touch(sid: string, sess: session.SessionData, callback: (error?: Error | null) => void): void { this.set(sid, sess, callback); }
-}
+import { coreContainer } from './service-container.js';
+import { SQLiteSessionStore } from './session-store.js';
+import { TOKENS } from './tokens.js';
 
 export async function createApp() {
-  runMigrations();
   const app = express();
   const hooks = new HookSystem();
   const router = new RouterCollector();
+
   app.disable('x-powered-by');
   app.set('view engine', 'ejs');
   app.use(expressLayouts);
   app.set('layout', 'layouts/web');
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
-  app.use(session({ store: new SQLiteSessionStore(), secret: process.env.SESSION_SECRET ?? 'linearpress-development-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 14 } }));
-  app.use((req, res, next) => {
-    if (!isOobeRequired()) return next();
-    if (req.path === '/oobe' || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path === '/favicon.ico') return next();
+
+  coreContainer.provide(TOKENS.database, db);
+  coreContainer.provide(TOKENS.sessionStoreFactory, () => new SQLiteSessionStore(coreContainer.resolve(TOKENS.database)));
+
+  const plugins = new PluginManager(app, db, hooks, router, coreContainer);
+  plugins.discover();
+  await plugins.prebootAll();
+
+  // The local infrastructure database keeps plugin state even when content services are replaced.
+  runMigrations();
+  registerCoreServices(coreContainer, hooks, plugins);
+  await plugins.bootstrapEnabled();
+
+  app.use(session({ store: coreContainer.resolve(TOKENS.sessionStoreFactory)(), secret: process.env.SESSION_SECRET ?? 'linearpress-development-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 14 } }));
+  app.use(async (req, res, next) => {
+    const auth = coreContainer.resolve(TOKENS.auth);
+    if (!await auth.isOobeRequired()) return next();
+    if (req.path === '/oobe' || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/plugins/') || req.path === '/favicon.ico') return next();
     res.redirect('/oobe');
   });
 
-  const plugins = new PluginManager(app, db, hooks, router);
-  registerCoreRoutes(router, hooks, plugins);
-  await plugins.loadAll();
+  registerCoreRoutes(router, hooks, coreContainer);
+  await plugins.activateAll();
+
   app.set('views', [...plugins.viewPaths].reverse().concat(path.join(process.cwd(), 'src', 'views')));
-  for (const dir of [...plugins.staticPaths].reverse()) app.use(express.static(dir));
+  const staticGroups = new Map<string, string[]>();
+  for (const mount of plugins.staticMounts) staticGroups.set(mount.id, [...(staticGroups.get(mount.id) ?? []), mount.dir]);
+  for (const [id, dirs] of [...staticGroups.entries()].reverse()) app.use(`/plugins/${id}`, ...dirs.map((dir) => express.static(dir)));
   app.use(express.static(path.join(process.cwd(), 'src', 'public')));
+
   app.use(async (req, res, next) => {
-    const user = req.session.userId ? findUserById(req.session.userId) : undefined;
-    res.locals.siteConfig = siteConfig;
-    res.locals.currentUser = user;
-    res.locals.currentGroup = user ? getGroup(user.group_id) : undefined;
-    res.locals.currentPath = req.path;
-    res.locals.adminMenu = await hooks.collect('admin:menu', [{ title: '控制台', link: '/admin' }, { title: '文章', link: '/admin/posts' }, { title: '评论', link: '/admin/comments' }, { title: '用户', link: '/admin/users' }, { title: '权限组', link: '/admin/groups' }, { title: '插件', link: '/admin/plugins' }]);
+    const users = coreContainer.resolve(TOKENS.users);
+    const config = coreContainer.resolve(TOKENS.config);
+    const user = req.session.userId ? await users.findById(req.session.userId) : undefined;
+    const locals = await hooks.trigger('site:locals', {
+      siteConfig: await config.get(),
+      pluginStyleUrls: plugins.styleUrls,
+      pluginScriptUrls: plugins.scriptUrls,
+      currentUser: user,
+      currentGroup: user ? await users.getGroup(user.group_id) : undefined,
+      currentPath: req.path,
+      adminMenu: await hooks.collect('admin:menu', [{ title: '控制台', link: '/admin' }, { title: '文章', link: '/admin/posts' }, { title: '评论', link: '/admin/comments' }, { title: '用户', link: '/admin/users' }, { title: '权限组', link: '/admin/groups' }, { title: '插件', link: '/admin/plugins' }])
+    });
+    Object.assign(res.locals, locals);
     next();
   });
+  for (const middleware of plugins.middlewares) app.use(middleware);
   app.use('/admin', (_req, res, next) => { res.locals.layout = 'layouts/admin'; next(); });
   router.applyToApp(app);
   app.use((req, res) => res.status(404).render('error', { title: '未找到', message: '请求的页面不存在。' }));

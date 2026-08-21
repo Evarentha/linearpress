@@ -5,7 +5,8 @@ import path from 'node:path';
 const dbPath = process.env.DB_PATH ?? path.join(process.cwd(), 'data', 'blog.db');
 fs.ensureDirSync(path.dirname(dbPath));
 
-export interface SqliteStatement { run(...params: unknown[]): { lastInsertRowid?: number | bigint; changes?: number | bigint }; get(...params: unknown[]): unknown; all(...params: unknown[]): unknown[]; }
+export interface SqliteRunResult { lastInsertRowid?: number | bigint; changes?: number | bigint; }
+export interface SqliteStatement { run(...params: unknown[]): SqliteRunResult; get(...params: unknown[]): unknown; all(...params: unknown[]): unknown[]; }
 export interface SqliteDatabase { exec(sql: string): void; prepare(sql: string): SqliteStatement; close(): void; name: string; }
 export const db: SqliteDatabase = new DatabaseSync(dbPath) as unknown as SqliteDatabase;
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');

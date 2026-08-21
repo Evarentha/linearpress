@@ -2,33 +2,48 @@
 
 ## Runtime
 
-The application runs TypeScript directly through `tsx`. On Node.js 24 the database adapter is the built-in synchronous `node:sqlite` API. This keeps the project free of native package compilation on Windows while preserving the synchronous repository API used by services and plugins.
+LinearPress 使用 Node.js、TypeScript/tsx、Express 5、EJS 和 Node 24 内置 SQLite。插件是完全可信代码，不使用沙箱。
 
-`src/core/app.ts` owns process composition. It creates the Express app, migrations, SQLite-backed sessions, plugin manager, view paths, static paths and final route registration.
+## Startup Lifecycle
 
-## Request flow
+1. 创建 Express、Hook、路由收集器和 ServiceContainer。
+2. 注册默认数据库与 Session Store factory。
+3. 从文件系统发现插件。
+4. 对 `preboot: true` 插件执行 `preboot`，允许替换数据库和 Session。
+5. 初始化本地基础设施 SQLite，它保存插件状态和默认数据。
+6. 注册核心默认服务。
+7. 按数据库 `load_order` 执行启用插件的 `bootstrap`，允许 replace/decorate 服务。
+8. 创建 Session 中间件和 OOBE 门禁。
+9. 收集核心路由。
+10. 执行插件 `activate`，收集插件路由、视图、资源和中间件。
+11. 倒序挂载路由，后加载插件优先。
 
-1. Express parses the request and restores the session from `data/blog.db`.
-2. If no super administrator exists, the OOBE gate redirects all non-static requests to `/oobe`.
-3. Plugins are scanned from `src/plugins/*/plugin.json`.
-4. Enabled plugins activate in ascending `load_order`.
-5. Core routes and plugin routes are collected before registration.
-6. Collected routes are applied in reverse order, so later registrations have precedence.
-7. EJS resolves plugin view directories before `src/views`.
-8. Static plugin directories are mounted before `src/public`.
+## Service Container
 
-## Boundaries
+核心业务不通过静态模块引用绑定到控制器。控制器在请求时解析 token：
 
-- Controllers translate HTTP input into service calls.
-- Services own validation, persistence and domain behavior.
-- Models are represented by TypeScript interfaces and service-level hydration functions.
-- Hooks are typed by `HookPayloadMap`; callbacks can transform a payload and priority controls execution order.
-- Plugins are trusted code. They receive database and Express access and are not sandboxed.
+```ts
+container.resolve(TOKENS.posts)
+container.resolve(TOKENS.auth)
+container.resolve(TOKENS.permissions)
+```
 
-## Persistence
+插件可完整替换服务，也可使用装饰器包裹原实现。所有服务方法支持 Promise，使异步数据库驱动能够注入。
 
-The database migration is idempotent and creates users, groups, posts, comments, plugins and sessions. A partial unique index guarantees that at most one user can have `is_super_admin = 1`. Existing installations promote the oldest user in the system `admin` group during migration; clean installations must complete OOBE. Plugin registration is synchronized from manifests without overwriting an administrator's enabled state or load order.
+默认 token 包含数据库、Session、认证、用户、文章、评论、权限组、权限、插件和站点配置。插件可以用 `createToken` 注册新模块。
 
-## Extension rules
+## Database Boundary
 
-A plugin should use its own tables with `CREATE TABLE IF NOT EXISTS`, register cleanup in `deactivate`, and protect administrative routes with `checkPermission`. View and static overrides should be deliberate because the later-loaded plugin wins.
+本地 SQLite 基础设施数据库负责插件注册和默认实现。MySQL 等驱动可以在 preboot 替换主数据库和 Session，并在 bootstrap 替换所有业务服务。这样插件加载状态不依赖可替换的内容数据库。
+
+## Routes, Views And Assets
+
+路由经 RouterCollector 延迟注册并反向挂载。视图目录倒序解析。插件公共目录挂载到 `/plugins/<id>/`，Manifest 中的 CSS/JS 自动进入前后台布局。
+
+## Blocks And Hooks
+
+BlockRegistry 支持服务端自定义区块渲染；浏览器 `LinearPressEditor.registerBlock` 支持编辑器字段注入。Hook 用于轻量事件修改，ServiceContainer 用于完整实现替换。
+
+## Protected Kernel
+
+不可由普通 activate 插件替换的只有进程入口、插件文件发现器和生命周期调度器。preboot 插件可以替换数据库与 Session；bootstrap 插件可以替换其余业务服务。

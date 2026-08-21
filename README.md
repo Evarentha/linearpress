@@ -23,4 +23,4 @@ npm run typecheck
 npm test
 ```
 
-目录结构和插件契约见 `docs/plugin-development.md` 与 `docs/hook-reference.md`。
+目录结构和插件契约见 `docs/plugin-development.md`、`docs/api-reference.md`（服务容器与注入）与 `docs/hook-reference.md`。

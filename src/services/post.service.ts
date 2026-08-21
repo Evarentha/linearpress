@@ -1,9 +1,9 @@
+import { renderBlocks } from '../core/block-registry.js';
 import { db } from '../core/database.js';
 import type { Block, Post, PostStatus } from '../types/index.js';
 
+export { renderBlocks };
 interface PostRow extends Omit<Post, 'content_json'> { content_json: string; }
-const esc = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]!));
-export function renderBlocks(blocks: Block[]): string { return blocks.map((block) => { switch (block.type) { case 'paragraph': return `<p>${esc(block.content)}</p>`; case 'heading': return `<h${block.level}>${esc(block.content)}</h${block.level}>`; case 'blockquote': return `<blockquote>${esc(block.content)}</blockquote>`; case 'image': return `<figure><img src="${esc(block.src)}" alt="${esc(block.alt ?? '')}"></figure>`; case 'custom-html': return block.content; } }).join('\n'); }
 function hydrate(row: PostRow | undefined): Post | undefined { return row ? { ...row, content_json: JSON.parse(row.content_json) as Block[] } : undefined; }
 export function generateSlug(value: string): string {
   return value

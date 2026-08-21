@@ -2,6 +2,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { ServiceContainer, createToken } from '../src/core/service-container.js';
+
+const testToken = createToken<{ value: number }>('smoke:test');
+const container = new ServiceContainer();
+container.provide(testToken, { value: 1 });
+assert.equal(container.resolve(testToken).value, 1);
+container.decorate(testToken, (service) => ({ value: service.value + 1 }));
+assert.equal(container.resolve(testToken).value, 2);
+container.replace(testToken, { value: 3 });
+assert.equal(container.resolve(testToken).value, 3);
 
 const dbPath = path.join(process.cwd(), 'data', `smoke-${randomUUID()}.db`);
 process.env.DB_PATH = dbPath;
@@ -48,8 +58,13 @@ try {
   response = await request('/admin/seo');
   assert.equal(response.status, 200, 'super administrator should access plugin routes');
 
+  response = await request('/');
+  assert.equal(response.status, 200);
+  const homeHtml = await response.text();
+  assert.equal(homeHtml.includes('/plugins/'), false, 'no example plugin assets should be loaded');
+
   assert.equal(generateSlug('你好，LinearPress 世界！'), '你好-linearpress-世界', 'Unicode titles should generate readable slugs');
-  const blocks = JSON.stringify([{ type: 'paragraph', content: 'Smoke content' }]);
+  const blocks = JSON.stringify([{ type: 'paragraph', content: 'Plugin-independent content' }]);
   const postBody = new URLSearchParams({ title: 'Smoke Post', slug: '', status: 'published', content_json: blocks });
   response = await request('/admin/posts/save', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: postBody });
   assert.equal(response.status, 302, 'super administrator should publish a post with an automatic slug');
@@ -61,7 +76,9 @@ try {
 
   response = await request('/post/smoke-post');
   assert.equal(response.status, 200, 'published post should render');
-  assert.match(await response.text(), /Responses/, 'later-loaded theme should override the post view');
+  const postHtml = await response.text();
+  assert.match(postHtml, /Responses/, 'later-loaded theme should override the post view');
+  assert.match(postHtml, /Plugin-independent content/, 'core content should render without example plugins');
   console.log('Smoke tests passed');
 } finally {
   await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));

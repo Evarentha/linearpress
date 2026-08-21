@@ -1,3 +1,4 @@
+export interface SiteConfig { title: string; description: string; customCss: string; }
 export type PostStatus = 'draft' | 'published' | 'archived';
 export type CommentStatus = 'pending' | 'approved' | 'spam';
 
@@ -6,7 +7,8 @@ export type Block =
   | { type: 'heading'; level: 1 | 2 | 3; content: string }
   | { type: 'blockquote'; content: string }
   | { type: 'image'; src: string; alt?: string }
-  | { type: 'custom-html'; content: string };
+  | { type: 'custom-html'; content: string }
+  | { type: string; [key: string]: unknown };
 
 export interface User { id: number; username: string; password_hash: string; email: string | null; group_id: number; is_super_admin: number; created_at: string; }
 export interface Group { id: number; name: string; permissions: string[]; is_system: number; created_at: string; }

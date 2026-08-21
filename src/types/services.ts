@@ -1,5 +1,6 @@
 import type session from 'express-session';
 import type { SqliteDatabase, SqliteRunResult } from '../core/database.js';
+import type { PluginInstallResult } from '../services/plugin-installer.js';
 import type { Block, Comment, CommentStatus, Group, Plugin, Post, PostStatus, SiteConfig, User } from './index.js';
 
 export type MaybePromise<T> = T | Promise<T>;
@@ -67,6 +68,8 @@ export interface PluginService {
   getConfig<T = unknown>(id: string): MaybePromise<T | null>;
   setConfig(id: string, config: unknown): MaybePromise<void>;
   uninstall(id: string): MaybePromise<void>;
+  installNpm(spec: string): MaybePromise<PluginInstallResult>;
+  installZip(buffer: Buffer): MaybePromise<PluginInstallResult>;
 }
 export interface ConfigService {
   get(): MaybePromise<SiteConfig>;

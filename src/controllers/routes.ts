@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import express from 'express';
 import type { HookSystem } from '../core/hook-system.js';
 import type { RouterCollector } from '../core/router-collector.js';
 import type { ServiceContainer } from '../core/service-container.js';
@@ -71,4 +72,22 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
   router.register('post', '/admin/plugins/:id/toggle', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const service = container.resolve(TOKENS.plugins); const id = routeParam(req.params.id); const plugin = (await service.list()).find((item) => item.id === id); if (!plugin) return void res.status(404).render('error', { title: '插件不存在', message: id }); await service.setEnabled(id, !plugin.enabled); res.redirect('/admin/plugins'); }));
   router.register('post', '/admin/plugins/:id/uninstall', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { try { await container.resolve(TOKENS.plugins).uninstall(routeParam(req.params.id)); res.redirect('/admin/plugins'); } catch (error) { res.status(400).render('error', { title: '插件卸载失败', message: messageOf(error) }); } }));
   router.register('post', '/admin/plugins/reorder', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const service = container.resolve(TOKENS.plugins); const ids = Array.isArray(req.body.ids) ? req.body.ids : []; await Promise.all(ids.map((id: string, index: number) => service.setLoadOrder(id, index * 10))); res.json({ ok: true }); }));
+  router.register('post', '/admin/plugins/install-npm', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => {
+    const spec = String((req.body as Record<string, unknown> | undefined)?.package ?? '').trim();
+    if (!spec) return void res.status(400).json({ ok: false, message: '请输入 npm 包名' });
+    const service = container.resolve(TOKENS.plugins);
+    try {
+      const plugin = await service.installNpm(spec);
+      res.json({ ok: true, plugin });
+    } catch (error) { res.status(400).json({ ok: false, message: messageOf(error) }); }
+  }));
+  router.register('post', '/admin/plugins/install-zip', requireAuth, checkPermission('plugin:manage'), express.raw({ type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'], limit: '64mb' }), wrap(async (req, res) => {
+    const buffer = req.body as Buffer;
+    if (!Buffer.isBuffer(buffer) || buffer.length === 0) return void res.status(400).json({ ok: false, message: '请上传 .zip 压缩包' });
+    const service = container.resolve(TOKENS.plugins);
+    try {
+      const plugin = await service.installZip(buffer);
+      res.json({ ok: true, plugin });
+    } catch (error) { res.status(400).json({ ok: false, message: messageOf(error) }); }
+  }));
 }

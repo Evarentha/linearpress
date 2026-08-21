@@ -142,6 +142,8 @@ export class PluginManager {
     for (let i = this.scriptUrls.length - 1; i >= 0; i--) if (this.scriptUrls[i].startsWith(`/plugins/${id}/`)) this.scriptUrls.splice(i, 1);
     const candidate = this.candidates.find((entry) => entry.manifest.id === id);
     if (candidate) await fs.remove(candidate.rootDir);
+    // 运行时直接安装的插件不在 candidates 中，从 plugins 根目录兜底删除。
+    if (!candidate) await fs.remove(path.join(process.cwd(), 'src', 'plugins', id)).catch(() => undefined);
     this.infrastructureDb.prepare('DELETE FROM plugins WHERE id=?').run(id);
   }
 

@@ -7,6 +7,7 @@ import * as commentData from '../services/comment.service.js';
 import { getBaseConfig, setBaseConfig } from '../services/config.service.js';
 import * as groupData from '../services/group.service.js';
 import { hasPermission } from '../services/permission.service.js';
+import { installFromNpm, installFromZip } from '../services/plugin-installer.js';
 import * as postData from '../services/post.service.js';
 import * as userData from '../services/user.service.js';
 import type { Plugin } from '../types/index.js';
@@ -125,7 +126,9 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
     setLoadOrder: async (id, order) => { const payload = await hooks.trigger('plugin:beforeReorder', { id, order }); manager.setLoadOrder(payload.id, payload.order); await hooks.trigger('plugin:afterReorder', payload); },
     getConfig: <T>(id: string): T | null => { const row = manager.database.prepare('SELECT config FROM plugins WHERE id=?').get(id) as { config: string | null } | undefined; return row?.config ? JSON.parse(row.config) as T : null; },
     setConfig: (id, config) => { manager.database.prepare('UPDATE plugins SET config=? WHERE id=?').run(JSON.stringify(config), id); },
-    uninstall: async (id) => { const payload = await hooks.trigger('plugin:beforeUninstall', { id }); await manager.uninstall(payload.id); await hooks.trigger('plugin:afterUninstall', payload); }
+    uninstall: async (id) => { const payload = await hooks.trigger('plugin:beforeUninstall', { id }); await manager.uninstall(payload.id); await hooks.trigger('plugin:afterUninstall', payload); },
+    installNpm: (spec) => installFromNpm(manager, spec),
+    installZip: (buffer) => installFromZip(manager, buffer)
   };
   container.provide(TOKENS.plugins, pluginService);
 

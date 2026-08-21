@@ -1,0 +1,10 @@
+{
+  "id": "minimal-theme",
+  "name": "Minimal Theme",
+  "version": "1.0.0",
+  "description": "A small example theme proving view override order.",
+  "author": "LinearPress",
+  "type": "theme",
+  "main": "index.ts",
+  "views": "views"
+}

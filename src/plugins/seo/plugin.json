@@ -1,0 +1,8 @@
+{
+  "id": "seo",
+  "name": "SEO 增强",
+  "version": "1.0.0",
+  "type": "both",
+  "main": "index.ts",
+  "hooks": { "post:beforeSave": true }
+}

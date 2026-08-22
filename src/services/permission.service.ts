@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { RequestHandler } from 'express';
 import { coreContainer } from '../core/service-container.js';
 import { TOKENS } from '../core/tokens.js';

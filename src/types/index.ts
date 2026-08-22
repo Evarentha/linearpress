@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 export interface SiteConfig { title: string; description: string; customCss: string; }
 export type PostStatus = 'draft' | 'published' | 'archived';
 export type CommentStatus = 'pending' | 'approved' | 'spam';

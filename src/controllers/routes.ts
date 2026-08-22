@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { Request, Response } from 'express';
 import express from 'express';
 import type { HookSystem } from '../core/hook-system.js';

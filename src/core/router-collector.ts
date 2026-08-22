@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { Express, RequestHandler } from 'express';
 import type { RegisteredRoute } from '../types/plugin.js';
 

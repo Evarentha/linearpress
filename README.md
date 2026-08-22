@@ -1,3 +1,10 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
 # LinearPress
 
 LinearPress 是一个 TypeScript、Express 5、EJS 和 SQLite 驱动的服务端渲染博客系统。

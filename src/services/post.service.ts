@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import { renderBlocks } from '../core/block-registry.js';
 import { db } from '../core/database.js';
 import type { Block, Post, PostStatus } from '../types/index.js';

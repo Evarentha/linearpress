@@ -1,3 +1,10 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
 # LinearPress Architecture
 
 ## Runtime

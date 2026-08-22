@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import { db } from './database.js';
 import type { HookSystem } from './hook-system.js';
 import type { PluginManager } from './plugin-manager.js';

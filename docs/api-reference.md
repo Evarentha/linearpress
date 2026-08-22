@@ -1,3 +1,10 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
 # Service Container Reference
 
 LinearPress 插件不需要等待核心添加专用 CRUD API。核心业务被注册为可替换服务，插件通过 `container.resolve`、`replace` 和 `decorate` 直接注入实现。

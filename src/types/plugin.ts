@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { Express, RequestHandler } from 'express';
 import type { SqliteDatabase } from '../core/database.js';
 import type { HookSystem } from '../core/hook-system.js';

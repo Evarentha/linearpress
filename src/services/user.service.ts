@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import bcrypt from 'bcryptjs';
 import { db } from '../core/database.js';
 import type { Group, User } from '../types/index.js';

@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { Comment, CommentStatus, Group, Post, SiteConfig, User } from './index.js';
 
 export interface CommentDraft { postId: number; userId?: number; guestName?: string; guestEmail?: string; content: string; ip?: string; }

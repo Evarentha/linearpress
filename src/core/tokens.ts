@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { SqliteDatabase } from './database.js';
 import { createToken } from './service-container.js';
 import type { AuthService, CommentService, ConfigService, DatabaseService, GroupService, PermissionService, PluginService, PostService, SessionStoreFactory, UserService } from '../types/services.js';

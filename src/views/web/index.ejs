@@ -1,1 +1,8 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
 <section class="intro"><p class="eyebrow">INDEPENDENT PUBLISHING SYSTEM</p><h1>写下值得留下的内容。</h1><p class="lede">LinearPress 是一个极简、可扩展、服务端渲染的写作空间。</p></section><section class="post-list"><% posts.forEach(post => { %><article class="post-row"><div><p class="meta"><%= post.created_at %> / <%= post.views %> VIEWS</p><h2><a href="/post/<%= post.slug %>"><%= post.title %></a></h2></div><a class="arrow" href="/post/<%= post.slug %>">READ →</a></article><% }) %></section>

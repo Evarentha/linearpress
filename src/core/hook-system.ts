@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type { HookName, HookPayloadMap } from '../types/hooks.js';
 
 type Handler<K extends HookName> = { callback: (payload: HookPayloadMap[K]) => HookPayloadMap[K] | void | Promise<HookPayloadMap[K] | void>; priority: number; pluginId: string };

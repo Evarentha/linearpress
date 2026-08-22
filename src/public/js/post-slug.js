@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 (() => {
   const title = document.querySelector('#post-title');
   const slug = document.querySelector('#post-slug');

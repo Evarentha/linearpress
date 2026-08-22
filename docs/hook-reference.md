@@ -1,3 +1,10 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
 # Hook Reference
 
 通过 `hooks.on(name, callback, { priority })` 注册。数字越小越先执行。回调返回的新 payload 会传给下一个处理器；抛出异常可阻止当前业务操作。

@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import type session from 'express-session';
 import type { SqliteDatabase, SqliteRunResult } from '../core/database.js';
 import type { PluginInstallResult } from '../services/plugin-installer.js';

@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import { checkPermission } from '../../services/permission.service.js';
 import type { PluginEntry } from '../../types/plugin.js';
 

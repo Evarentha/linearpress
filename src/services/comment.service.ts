@@ -1,3 +1,10 @@
+/*
+ * Author: MoyuZJ
+ * Team: LinearTeam
+ * Contact: linearteam@foxmail.com
+ * Made by MoyuZJ in China with ♥
+ */
+
 import { db } from '../core/database.js';
 import type { Comment } from '../types/index.js';
 export function approvedForPost(postId: number): Comment[] { return db.prepare("SELECT * FROM comments WHERE post_id=? AND status='approved' ORDER BY created_at ASC").all(postId) as Comment[]; }

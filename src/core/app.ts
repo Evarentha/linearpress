@@ -83,4 +83,9 @@ export async function createApp() {
   return app;
 }
 
-export async function start(): Promise<void> { const app = await createApp(); const port = Number(process.env.PORT ?? 3000); app.listen(port, () => console.log(`LinearPress running at http://localhost:${port}`)); }
+export async function start(): Promise<void> {
+  if (process.env.LINEARPRESS_RESTART_CHILD === '1') await new Promise((resolve) => setTimeout(resolve, 700));
+  const app = await createApp();
+  const port = Number(process.env.PORT ?? 3000);
+  app.listen(port, () => console.log(`LinearPress running at http://localhost:${port}`));
+}

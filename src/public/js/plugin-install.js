@@ -21,6 +21,24 @@
     alert(message);
   }
 
+  function restartAfterInstall(plugin) {
+    showStatus('插件 ' + plugin.name + ' v' + plugin.version + ' 已安装，必须重启项目后才能生效。', true);
+    if (!window.confirm('插件已安装，但必须重启项目才能生效。现在自动重启并重新加载吗？')) {
+      showStatus('插件已安装，但尚未重启项目。确认后请手动重启服务，插件才能生效。', true);
+      return;
+    }
+    showStatus('正在重启项目，请稍候…', true);
+    fetch('/admin/plugins/restart', { method: 'POST' })
+      .then(function (response) { return response.json().catch(function () { return null; }).then(function (data) { return { status: response.status, data: data }; }); })
+      .then(function (result) {
+        if (!result.data || !result.data.ok) throw new Error((result.data && result.data.message) || '重启请求失败');
+        setTimeout(function () { location.href = '/admin/plugins'; }, 1800);
+      })
+      .catch(function (error) { showStatus('插件已安装，但自动重启失败：' + error.message + '。请手动重启服务。', false); });
+  }
+
+  function handleInstallSuccess(plugin) { restartAfterInstall(plugin); }
+
   var npmForm = document.getElementById('npm-install-form');
   npmForm.addEventListener('submit', function (event) {
     event.preventDefault();
@@ -41,8 +59,7 @@
           promptError((data && data.message) || '安装失败，请检查服务器日志');
           return;
         }
-        showStatus('插件 ' + data.plugin.name + ' v' + data.plugin.version + ' 已安装。', true);
-        setTimeout(function () { location.reload(); }, 800);
+        handleInstallSuccess(data.plugin);
       })
       .catch(function (error) { promptError('安装失败：' + error.message); })
       .finally(function () { button.disabled = false; });
@@ -69,8 +86,7 @@
           promptError((data && data.message) || '安装失败，请检查服务器日志');
           return;
         }
-        showStatus('插件 ' + data.plugin.name + ' v' + data.plugin.version + ' 已安装。', true);
-        setTimeout(function () { location.reload(); }, 800);
+        handleInstallSuccess(data.plugin);
       })
       .catch(function (error) { promptError('安装失败：' + error.message); })
       .finally(function () { button.disabled = false; });

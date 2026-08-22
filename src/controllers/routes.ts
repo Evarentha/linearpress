@@ -11,6 +11,7 @@ import type { HookSystem } from '../core/hook-system.js';
 import type { RouterCollector } from '../core/router-collector.js';
 import type { ServiceContainer } from '../core/service-container.js';
 import { TOKENS } from '../core/tokens.js';
+import { requestRestart } from '../core/restart.js';
 import { checkPermission, requireAuth } from '../services/permission.service.js';
 import type { Block, CommentStatus, PostStatus } from '../types/index.js';
 
@@ -79,6 +80,10 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
   router.register('post', '/admin/plugins/:id/toggle', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const service = container.resolve(TOKENS.plugins); const id = routeParam(req.params.id); const plugin = (await service.list()).find((item) => item.id === id); if (!plugin) return void res.status(404).render('error', { title: '插件不存在', message: id }); await service.setEnabled(id, !plugin.enabled); res.redirect('/admin/plugins'); }));
   router.register('post', '/admin/plugins/:id/uninstall', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { try { await container.resolve(TOKENS.plugins).uninstall(routeParam(req.params.id)); res.redirect('/admin/plugins'); } catch (error) { res.status(400).render('error', { title: '插件卸载失败', message: messageOf(error) }); } }));
   router.register('post', '/admin/plugins/reorder', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const service = container.resolve(TOKENS.plugins); const ids = Array.isArray(req.body.ids) ? req.body.ids : []; await Promise.all(ids.map((id: string, index: number) => service.setLoadOrder(id, index * 10))); res.json({ ok: true }); }));
+  router.register('post', '/admin/plugins/restart', requireAuth, checkPermission('plugin:manage'), (_req, res) => {
+    res.status(202).json({ ok: true, restarting: true, message: '项目正在重启，页面将在稍后重新加载。' });
+    requestRestart();
+  });
   router.register('post', '/admin/plugins/install-npm', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => {
     const spec = String((req.body as Record<string, unknown> | undefined)?.package ?? '').trim();
     if (!spec) return void res.status(400).json({ ok: false, message: '请输入 npm 包名' });

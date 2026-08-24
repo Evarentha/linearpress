@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx index.ts",
-    "start": "tsx index.ts",
-    "db:init": "tsx scripts/init-db.ts",
-    "seed": "tsx scripts/seed.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/smoke.ts"
+    "dev": "node scripts/run.js index.ts",
+    "start": "node scripts/run.js index.ts",
+    "db:init": "node scripts/run.js scripts/init-db.ts",
+    "seed": "node scripts/run.js scripts/seed.ts",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "test": "node scripts/run.js scripts/smoke.ts"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

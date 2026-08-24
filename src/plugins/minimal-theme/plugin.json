@@ -6,5 +6,6 @@
   "author": "LinearPress",
   "type": "theme",
   "main": "index.ts",
+  "runtime": "cordis",
   "views": "views"
 }

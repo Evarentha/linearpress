@@ -5,11 +5,9 @@
  * Made by MoyuZJ in China with ♥
  */
 
-import { db } from './database.js';
+import type { Context } from 'cordis';
 import type { HookSystem } from './hook-system.js';
 import type { PluginManager } from './plugin-manager.js';
-import type { ServiceContainer } from './service-container.js';
-import { TOKENS } from './tokens.js';
 import * as commentData from '../services/comment.service.js';
 import { getBaseConfig, setBaseConfig } from '../services/config.service.js';
 import * as groupData from '../services/group.service.js';
@@ -20,10 +18,9 @@ import * as userData from '../services/user.service.js';
 import type { Plugin } from '../types/index.js';
 import type { AuthService, CommentService, ConfigService, DatabaseService, GroupService, PermissionService, PluginService, PostService, UserService } from '../types/services.js';
 
-export function registerCoreServices(container: ServiceContainer, hooks: HookSystem, manager: PluginManager): void {
-  container.provide(TOKENS.database, db);
+export function registerCoreServices(context: Context, hooks: HookSystem, manager: PluginManager): void {
+  const primaryDatabase = context.database;
 
-  const primaryDatabase = container.resolve(TOKENS.database);
   const databaseService: DatabaseService = {
     raw: primaryDatabase,
     all: <T>(sql: string, ...params: unknown[]) => primaryDatabase.prepare(sql).all(...params) as T[],
@@ -36,7 +33,7 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
       catch (error) { primaryDatabase.exec('ROLLBACK'); throw error; }
     }
   };
-  container.provide(TOKENS.databaseService, databaseService);
+  context.provide('databaseService', databaseService);
 
   const auth: AuthService = {
     isOobeRequired: userData.isOobeRequired,
@@ -52,7 +49,7 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
       return hooks.trigger('user:afterCreate', user);
     }
   };
-  container.provide(TOKENS.auth, auth);
+  context.provide('auth', auth);
 
   const users: UserService = {
     findById: userData.findUserById,
@@ -74,7 +71,7 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
     listGroups: userData.listGroups,
     getGroup: userData.getGroup
   };
-  container.provide(TOKENS.users, users);
+  context.provide('users', users);
 
   const posts: PostService = {
     findById: postData.findPostById,
@@ -98,7 +95,7 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
     generateSlug: postData.generateSlug,
     render: postData.renderBlocks
   };
-  container.provide(TOKENS.posts, posts);
+  context.provide('posts', posts);
 
   const comments: CommentService = {
     listForPost: commentData.approvedForPost,
@@ -108,7 +105,7 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
     setStatus: async (id, status) => { const comment = commentData.findComment(id); if (!comment) throw new Error('评论不存在'); const payload = await hooks.trigger('comment:beforeModerate', { comment, status }); commentData.setCommentStatus(payload.comment.id, payload.status); },
     remove: async (id) => { const comment = commentData.findComment(id); if (!comment) throw new Error('评论不存在'); const payload = await hooks.trigger('comment:beforeDelete', { comment }); commentData.deleteComment(payload.comment.id); await hooks.trigger('comment:afterDelete', payload); }
   };
-  container.provide(TOKENS.comments, comments);
+  context.provide('comments', comments);
 
   const groups: GroupService = {
     find: groupData.findGroup,
@@ -118,14 +115,14 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
     update: async (id, name, permissions) => { const draft = await hooks.trigger('group:beforeSave', { id, name, permissions }); return groupData.updateGroup(draft.id!, draft.name, draft.permissions); },
     remove: async (id) => { const group = groupData.findGroup(id); if (!group) throw new Error('权限组不存在'); const payload = await hooks.trigger('group:beforeDelete', { group }); groupData.deleteGroup(payload.group.id); }
   };
-  container.provide(TOKENS.groups, groups);
+  context.provide('groups', groups);
 
   const permissions: PermissionService = {
     has: hasPermission,
     register: (permission, label) => groupData.registerPermission(permission, label),
     list: groupData.listPermissionDefinitions
   };
-  container.provide(TOKENS.permissions, permissions);
+  context.provide('permissions', permissions);
 
   const pluginService: PluginService = {
     list: () => manager.database.prepare('SELECT * FROM plugins ORDER BY load_order').all() as Plugin[],
@@ -137,8 +134,8 @@ export function registerCoreServices(container: ServiceContainer, hooks: HookSys
     installNpm: (spec) => installFromNpm(manager, spec),
     installZip: (buffer) => installFromZip(manager, buffer)
   };
-  container.provide(TOKENS.plugins, pluginService);
+  context.provide('plugins', pluginService);
 
   const config: ConfigService = { get: () => hooks.trigger('site:config', getBaseConfig()), set: setBaseConfig };
-  container.provide(TOKENS.config, config);
+  context.provide('config', config);
 }

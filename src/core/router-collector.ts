@@ -14,7 +14,7 @@ export class RouterCollector {
 
   setCurrentPluginId(id: string): void { this.currentPluginId = id; }
   register(method: string, path: string, ...handlers: RequestHandler[]): void { this.routes.push({ method: method.toLowerCase(), path, handler: handlers, pluginId: this.currentPluginId }); }
-  getRoutes(): readonly RegisteredRoute[] { return this.routes; }
+  getCurrentPluginId(): string { return this.currentPluginId; }
 
   applyToApp(app: Express): void {
     for (const route of [...this.routes].reverse()) {

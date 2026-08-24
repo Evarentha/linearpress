@@ -11,13 +11,12 @@ import session from 'express-session';
 import path from 'node:path';
 import { registerCoreRoutes } from '../controllers/routes.js';
 import { registerCoreServices } from './core-services.js';
+import { setActiveContext } from './context.js';
 import { db, runMigrations } from './database.js';
 import { HookSystem } from './hook-system.js';
 import { PluginManager } from './plugin-manager.js';
 import { RouterCollector } from './router-collector.js';
-import { coreContainer } from './service-container.js';
 import { SQLiteSessionStore } from './session-store.js';
-import { TOKENS } from './tokens.js';
 
 export async function createApp() {
   const app = express();
@@ -31,27 +30,29 @@ export async function createApp() {
   app.use(express.urlencoded({ extended: true }));
   app.use(express.json());
 
-  coreContainer.provide(TOKENS.database, db);
-  coreContainer.provide(TOKENS.sessionStoreFactory, () => new SQLiteSessionStore(coreContainer.resolve(TOKENS.database)));
+  const plugins = new PluginManager(app, db, hooks, router);
+  const context = plugins.context;
+  setActiveContext(context);
 
-  const plugins = new PluginManager(app, db, hooks, router, coreContainer);
+  context.provide('database', db);
+  context.provide('sessionStoreFactory', () => new SQLiteSessionStore(context.database));
+
   plugins.discover();
   await plugins.prebootAll();
 
   // The local infrastructure database keeps plugin state even when content services are replaced.
   runMigrations();
-  registerCoreServices(coreContainer, hooks, plugins);
+  registerCoreServices(context, hooks, plugins);
   await plugins.bootstrapEnabled();
 
-  app.use(session({ store: coreContainer.resolve(TOKENS.sessionStoreFactory)(), secret: process.env.SESSION_SECRET ?? 'linearpress-development-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 14 } }));
+  app.use(session({ store: context.sessionStoreFactory(), secret: process.env.SESSION_SECRET ?? 'linearpress-development-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 14 } }));
   app.use(async (req, res, next) => {
-    const auth = coreContainer.resolve(TOKENS.auth);
-    if (!await auth.isOobeRequired()) return next();
+    if (!await context.auth.isOobeRequired()) return next();
     if (req.path === '/oobe' || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/plugins/') || req.path === '/favicon.ico') return next();
     res.redirect('/oobe');
   });
 
-  registerCoreRoutes(router, hooks, coreContainer);
+  registerCoreRoutes(router, hooks, context);
   await plugins.activateAll();
 
   app.set('views', [...plugins.viewPaths].reverse().concat(path.join(process.cwd(), 'src', 'views')));
@@ -61,15 +62,13 @@ export async function createApp() {
   app.use(express.static(path.join(process.cwd(), 'src', 'public')));
 
   app.use(async (req, res, next) => {
-    const users = coreContainer.resolve(TOKENS.users);
-    const config = coreContainer.resolve(TOKENS.config);
-    const user = req.session.userId ? await users.findById(req.session.userId) : undefined;
+    const user = req.session.userId ? await context.users.findById(req.session.userId) : undefined;
     const locals = await hooks.trigger('site:locals', {
-      siteConfig: await config.get(),
+      siteConfig: await context.config.get(),
       pluginStyleUrls: plugins.styleUrls,
       pluginScriptUrls: plugins.scriptUrls,
       currentUser: user,
-      currentGroup: user ? await users.getGroup(user.group_id) : undefined,
+      currentGroup: user ? await context.users.getGroup(user.group_id) : undefined,
       currentPath: req.path,
       adminMenu: await hooks.collect('admin:menu', [{ title: '控制台', link: '/admin' }, { title: '文章', link: '/admin/posts' }, { title: '评论', link: '/admin/comments' }, { title: '用户', link: '/admin/users' }, { title: '权限组', link: '/admin/groups' }, { title: '插件', link: '/admin/plugins' }])
     });

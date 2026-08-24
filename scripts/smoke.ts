@@ -9,16 +9,19 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { ServiceContainer, createToken } from '../src/core/service-container.js';
+import { CordisRuntime } from '../src/core/cordis-runtime.js';
 
-const testToken = createToken<{ value: number }>('smoke:test');
-const container = new ServiceContainer();
-container.provide(testToken, { value: 1 });
-assert.equal(container.resolve(testToken).value, 1);
-container.decorate(testToken, (service) => ({ value: service.value + 1 }));
-assert.equal(container.resolve(testToken).value, 2);
-container.replace(testToken, { value: 3 });
-assert.equal(container.resolve(testToken).value, 3);
+const runtime = new CordisRuntime();
+runtime.provide('smoke:value', { value: 1 });
+assert.equal(runtime.context.reflect.get('smoke:value').value, 1);
+let effectActive = false;
+await runtime.run('smoke-runtime', (context) => {
+  effectActive = true;
+  context.effect(() => () => { effectActive = false; });
+});
+assert.equal(effectActive, true);
+await runtime.dispose('smoke-runtime');
+assert.equal(effectActive, false);
 
 const dbPath = path.join(process.cwd(), 'data', `smoke-${randomUUID()}.db`);
 process.env.DB_PATH = dbPath;
@@ -68,7 +71,8 @@ try {
   response = await request('/');
   assert.equal(response.status, 200);
   const homeHtml = await response.text();
-  assert.equal(homeHtml.includes('/plugins/'), false, 'no example plugin assets should be loaded');
+  const modernEditorInstalled = fs.existsSync(path.join(process.cwd(), 'src', 'plugins', 'modern-editor', 'plugin.json'));
+  assert.equal(homeHtml.includes('/plugins/'), modernEditorInstalled, 'plugin assets should match discovered workspace plugins');
 
   assert.equal(generateSlug('你好，LinearPress 世界！'), '你好-linearpress-世界', 'Unicode titles should generate readable slugs');
   const blocks = JSON.stringify([{ type: 'paragraph', content: 'Plugin-independent content' }]);

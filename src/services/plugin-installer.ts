@@ -18,7 +18,7 @@ export interface PluginInstallResult { id: string; name: string; version: string
 const PLUGIN_TYPES = new Set(['backend', 'frontend', 'both', 'theme', 'driver']);
 const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 // 入口文件必须导出至少一个生命周期函数（与 plugin-manager importEntry 的约束一致）
-const LIFECYCLE_EXPORT = /\bexport\s+(?:const|function|async\s+function)\s+(preboot|bootstrap|activate|deactivate)\b/;
+const LIFECYCLE_EXPORT = /\bexport\s+(?:default|const|function|async\s+function)\s+(?:preboot|bootstrap|activate|deactivate)?\b/;
 
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : '未知错误'; }
 
@@ -111,7 +111,7 @@ function readManifest(rootDir: string): PluginManifest {
   if (!PLUGIN_TYPES.has(m.type!)) throw new Error(`不是有效的 LinearPress 插件：type 必须是 ${[...PLUGIN_TYPES].join('/')} 之一`);
   const id = m.id!.trim();
   if (!ID_PATTERN.test(id) || id === '.' || id === '..') throw new Error(`不是有效的 LinearPress 插件：id「${id}」不合法`);
-  return { id, name: m.name!.trim(), version: m.version!.trim(), type: m.type as PluginManifest['type'], main: m.main!.trim() };
+  return { ...m, id, name: m.name!.trim(), version: m.version!.trim(), type: m.type as PluginManifest['type'], main: m.main!.trim() } as PluginManifest;
 }
 
 /** 校验入口文件存在且导出生命周期函数（静态检查，不执行插件代码） */

@@ -5,24 +5,26 @@
  * Made by MoyuZJ in China with ♥
  */
 
+import type { Context } from 'cordis';
 import type { Express, RequestHandler } from 'express';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { registerBlock, unregisterPluginBlocks } from './block-registry.js';
+import { CordisRuntime } from './cordis-runtime.js';
 import type { SqliteDatabase } from './database.js';
 import type { HookSystem } from './hook-system.js';
 import type { RouterCollector } from './router-collector.js';
-import type { ServiceContainer } from './service-container.js';
-import { TOKENS } from './tokens.js';
-import type { ActivateContext, PluginEntry, PluginLogger, PluginManifest, PrebootContext } from '../types/plugin.js';
+import { createExpressWebAdapter, provideLinearPressServices, type LinearPressWeb } from './linearpress-services.js';
+import type { CordisPlugin, PluginEntry, PluginLogger, PluginManifest } from '../types/plugin.js';
 
 interface PluginRow { id: string; enabled: number; load_order: number; }
 interface Candidate { rootDir: string; manifest: PluginManifest; entry?: PluginEntry; }
-interface LoadedPlugin { candidate: Candidate; entry: PluginEntry; context: ActivateContext; }
+interface LoadedPlugin { candidate: Candidate; entry: PluginEntry; }
 interface StaticMount { id: string; dir: string; }
 
 export class PluginManager {
+  private readonly cordis = new CordisRuntime();
   private candidates: Candidate[] = [];
   private loaded: LoadedPlugin[] = [];
   readonly viewPaths: string[] = [];
@@ -30,8 +32,14 @@ export class PluginManager {
   readonly middlewares: RequestHandler[] = [];
   readonly styleUrls: string[] = [];
   readonly scriptUrls: string[] = [];
+  private readonly web: LinearPressWeb;
 
-  constructor(private app: Express, private infrastructureDb: SqliteDatabase, private hooks: HookSystem, private router: RouterCollector, private container: ServiceContainer) {}
+  constructor(private app: Express, private infrastructureDb: SqliteDatabase, private hooks: HookSystem, private router: RouterCollector) {
+    this.web = createExpressWebAdapter(this.router, this.middlewares, this.viewPaths, this.staticMounts, () => this.router.getCurrentPluginId());
+    provideLinearPressServices(this.context, { hooks: this.hooks, db: this.infrastructureDb, web: this.web });
+  }
+
+  get context(): Context { return this.cordis.context; }
   get database(): SqliteDatabase { return this.infrastructureDb; }
 
   discover(): PluginManifest[] {
@@ -53,7 +61,7 @@ export class PluginManager {
     for (const candidate of this.candidates.filter((item) => item.manifest.preboot)) {
       const entry = await this.importEntry(candidate);
       if (!entry.preboot) continue;
-      await this.withPlugin(candidate.manifest.id, async () => entry.preboot!(this.prebootContext(candidate)));
+      await this.runPhase(candidate.manifest.id, entry.preboot);
     }
   }
 
@@ -69,12 +77,12 @@ export class PluginManager {
       if (!candidate) continue;
       try {
         const entry = await this.importEntry(candidate);
-        const context = this.activateContext(candidate);
-        this.collectManifestResources(candidate.manifest, context);
-        const permissions = this.container.resolve(TOKENS.permissions);
-        for (const permission of candidate.manifest.permissions ?? []) await permissions.register(permission, permission);
-        if (entry.bootstrap) await this.withPlugin(candidate.manifest.id, async () => entry.bootstrap!(context));
-        this.loaded.push({ candidate, entry, context });
+        await this.runPhase(candidate.manifest.id, async (context) => {
+          this.collectManifestResources(candidate.manifest);
+          for (const permission of candidate.manifest.permissions ?? []) await context.permissions.register(permission, permission);
+          if (entry.bootstrap) await entry.bootstrap(context);
+        });
+        this.loaded.push({ candidate, entry });
       } catch (error) { console.error(`[${candidate.manifest.id}] Failed to bootstrap`, error); }
     }
   }
@@ -83,17 +91,24 @@ export class PluginManager {
     for (const item of this.loaded) {
       const { manifest } = item.candidate;
       try {
-        if (item.entry.activate) await this.withPlugin(manifest.id, async () => item.entry.activate!(item.context));
-        await this.hooks.trigger('plugin:afterLoad', { id: manifest.id, name: manifest.name, version: manifest.version });
+        const activate = item.entry.default ?? item.entry.activate;
+        await this.runPhase(manifest.id, async (context) => {
+          if (activate) await activate(context);
+          await this.hooks.trigger('plugin:afterLoad', { id: manifest.id, name: manifest.name, version: manifest.version });
+        });
       } catch (error) { console.error(`[${manifest.id}] Failed to activate`, error); }
     }
+  }
+
+  private runPhase(id: string, phase: CordisPlugin): Promise<void> {
+    return this.cordis.run(id, (context) => this.withPlugin(id, () => phase(context)));
   }
 
   private async importEntry(candidate: Candidate): Promise<PluginEntry> {
     if (candidate.entry) return candidate.entry;
     const entryPath = path.resolve(candidate.rootDir, candidate.manifest.main);
     candidate.entry = await import(pathToFileURL(entryPath).href) as PluginEntry;
-    if (!candidate.entry.preboot && !candidate.entry.bootstrap && !candidate.entry.activate) throw new Error('Plugin must export preboot, bootstrap, or activate');
+    if (!candidate.entry.preboot && !candidate.entry.bootstrap && !candidate.entry.activate && !candidate.entry.default) throw new Error('Plugin must export a Cordis default plugin or preboot/bootstrap/activate function');
     return candidate.entry;
   }
 
@@ -101,25 +116,11 @@ export class PluginManager {
     return { info: (message) => console.log(`[${id}] ${message}`), error: (message) => console.error(`[${id}] ${message}`) };
   }
 
-  private prebootContext(candidate: Candidate): PrebootContext {
-    return { app: this.app, container: this.container, hooks: this.hooks, router: this.router, manifest: candidate.manifest, rootDir: candidate.rootDir, logger: this.logger(candidate.manifest.id) };
-  }
-
-  private activateContext(candidate: Candidate): ActivateContext {
-    const base = this.prebootContext(candidate);
-    return {
-      ...base,
-      db: this.container.resolve(TOKENS.database),
-      registerBlock: (type, renderer) => registerBlock(type, renderer, candidate.manifest.id),
-      middleware: (handler) => this.middlewares.push(handler),
-      staticDir: (dir) => this.staticMounts.push({ id: candidate.manifest.id, dir: path.resolve(candidate.rootDir, dir) }),
-      viewDir: (dir) => this.viewPaths.push(path.resolve(candidate.rootDir, dir))
-    };
-  }
-
-  private collectManifestResources(manifest: PluginManifest, context: ActivateContext): void {
-    if (manifest.views) context.viewDir(manifest.views);
-    if (manifest.public) context.staticDir(manifest.public);
+  private collectManifestResources(manifest: PluginManifest): void {
+    const rootDir = this.candidates.find((item) => item.manifest.id === manifest.id)?.rootDir;
+    if (!rootDir) return;
+    if (manifest.views) { const dir = path.resolve(rootDir, manifest.views); if (!this.viewPaths.includes(dir)) this.viewPaths.push(dir); }
+    if (manifest.public) { const dir = path.resolve(rootDir, manifest.public); if (!this.staticMounts.some((mount) => mount.id === manifest.id && mount.dir === dir)) this.staticMounts.push({ id: manifest.id, dir }); }
     for (const style of manifest.styles ?? []) this.styleUrls.push(`/plugins/${manifest.id}/${style}`);
     for (const script of manifest.scripts ?? []) this.scriptUrls.push(`/plugins/${manifest.id}/${script}`);
   }
@@ -139,7 +140,7 @@ export class PluginManager {
   async uninstall(id: string): Promise<void> {
     const item = this.loaded.find((entry) => entry.candidate.manifest.id === id);
     if (item) {
-      await item.entry.deactivate?.(item.context);
+      await this.cordis.dispose(id);
       this.hooks.offPlugin(id);
       unregisterPluginBlocks(id);
       this.loaded = this.loaded.filter((entry) => entry.candidate.manifest.id !== id);
@@ -149,16 +150,16 @@ export class PluginManager {
     for (let i = this.scriptUrls.length - 1; i >= 0; i--) if (this.scriptUrls[i].startsWith(`/plugins/${id}/`)) this.scriptUrls.splice(i, 1);
     const candidate = this.candidates.find((entry) => entry.manifest.id === id);
     if (candidate) await fs.remove(candidate.rootDir);
-    // 运行时直接安装的插件不在 candidates 中，从 plugins 根目录兜底删除。
     if (!candidate) await fs.remove(path.join(process.cwd(), 'src', 'plugins', id)).catch(() => undefined);
     this.infrastructureDb.prepare('DELETE FROM plugins WHERE id=?').run(id);
   }
 
   async deactivateAll(): Promise<void> {
     for (const item of [...this.loaded].reverse()) {
-      await item.entry.deactivate?.(item.context);
+      await this.cordis.dispose(item.candidate.manifest.id);
       this.hooks.offPlugin(item.candidate.manifest.id);
       unregisterPluginBlocks(item.candidate.manifest.id);
     }
+    await this.cordis.disposeAll();
   }
 }

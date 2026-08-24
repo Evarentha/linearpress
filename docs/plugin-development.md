@@ -5,25 +5,51 @@
   Made by MoyuZJ in China with ♥
 -->
 
-# LinearPress 插件开发指南
+# LinearPress Plugin Development
 
-## 生命周期
+## Runtime Model
 
-插件可以导出三个阶段：
+LinearPress 使用 Cordis 作为插件内核，使用 Express 作为 Web 层。插件是一个 Cordis 插件函数，通过 Cordis Context 获取服务、注册事件和清理资源。
 
-```ts
-export const preboot = context => {};
-export const bootstrap = context => {};
-export const activate = context => {};
-export const deactivate = context => {};
+```text
+Cordis Context / Fiber / Event / Effect
+                |
+        LinearPress services + Express web adapter
+                |
+        Express / Router / Session / EJS / static files
 ```
 
-- `preboot`：只对 Manifest 中 `preboot: true` 的插件执行。适合数据库和 Session 驱动。已安装的 preboot 驱动总会运行，因为此时数据库中的启停状态尚不可用。
-- `bootstrap`：默认服务注册后执行。适合 `container.replace/decorate`、迁移和权限注册。
-- `activate`：核心路由收集后执行。适合路由、视图、静态资源、中间件和 Hook。
-- `deactivate`：卸载或进程关闭时清理插件资源。
+## Plugin Entry
 
-插件按 `load_order` 升序执行；后加载插件替换权更高。
+普通插件导出默认函数：
+
+```ts
+import type { Context } from 'cordis';
+
+export default function myPlugin(ctx: Context) {
+  const { web, db, hooks } = ctx.linearpress;
+
+  web.register('get', '/my-plugin', (req, res) => res.send('ok'));
+  hooks.on('post:afterSave', (post) => post);
+  ctx.effect(() => {
+    const timer = setInterval(work, 30_000);
+    return () => clearInterval(timer);
+  });
+}
+```
+
+数据库驱动插件使用命名导出，分阶段运行：
+
+```ts
+export const preboot = async (ctx: Context) => { /* 替换 database / sessionStoreFactory */ };
+export const bootstrap = async (ctx: Context) => { /* 替换业务服务 */ };
+export const activate = (ctx: Context) => { /* 注册后台路由 */ };
+```
+
+- `preboot`：仅对 Manifest 中 `preboot: true` 的插件执行，在核心业务服务注册前运行。
+- `bootstrap`：核心默认服务注册后运行，用于替换业务服务。
+- `activate`：核心路由收集后运行，用于注册路由、视图、资源和事件。
+- 普通插件使用 `export default`（等价于 `activate`）。
 
 ## Manifest
 
@@ -34,6 +60,7 @@ export const deactivate = context => {};
   "version": "1.0.0",
   "type": "both",
   "main": "index.ts",
+  "runtime": "cordis",
   "preboot": false,
   "permissions": ["my-plugin:manage"],
   "views": "views",
@@ -43,43 +70,76 @@ export const deactivate = context => {};
 }
 ```
 
-`id` 必须与插件目录名一致。静态资源挂载在 `/plugins/<id>/`，CSS/JS 自动注入前台和后台布局。
+`id` 必须与插件目录名一致。静态资源挂载在 `/plugins/<id>/`，CSS/JS 自动注入前台和后台布局。`views` 和 `public` 会按相对插件目录解析。
 
-## Context
+## Cordis Context Services
+
+插件通过 `ctx` 直接访问业务服务：
 
 ```ts
-export const bootstrap = ({ container, hooks, db, logger }) => {
-  const original = container.resolve(TOKENS.posts);
-  container.decorate(TOKENS.posts, posts => ({
-    ...posts,
-    save: async input => posts.save({ ...input, title: input.title.trim() })
-  }));
-};
-
-export const activate = ({ router, middleware, registerBlock, viewDir }) => {
-  router.register('get', '/my-plugin', handler);
-  middleware(customMiddleware);
-  registerBlock('custom', renderer);
-  viewDir('views');
-};
+ctx.database        // 底层数据库对象
+ctx.databaseService // 查询服务（all/get/run/exec/transaction）
+ctx.sessionStoreFactory
+ctx.auth
+ctx.users
+ctx.posts
+ctx.comments
+ctx.groups
+ctx.permissions
+ctx.plugins
+ctx.config
 ```
 
-完整 token 与注入方式见 `api-reference.md`，事件扩展见 `hook-reference.md`。
+Web 和事件服务：
 
-## Replace Or Decorate
+```ts
+ctx.linearpress.web    // { register, middleware, viewDir, staticDir }
+ctx.linearpress.db     // 基础设施 SQLite
+ctx.linearpress.hooks  // LinearPress 事件总线
+```
 
-完全接管功能时使用 `replace`；增强原功能时使用 `decorate`。不要 monkey patch ESM 导出或 Express 私有字段，因为核心可能已经持有旧引用。
+等价简写：
 
-核心控制器在每个请求中从容器重新解析服务，因此 `bootstrap` 和 `activate` 中的替换都能生效。
+```ts
+ctx.web
+ctx.db
+ctx.hooks
+```
 
-## Routes And Views
+## Service Replacement
 
-核心与插件路由统一延迟注册。后加载插件注册的同路径路由先匹配。插件视图目录后注册优先，因此同名 EJS 可以覆盖核心视图。
+数据库驱动使用 `replaceService` 替换核心服务：
+
+```ts
+import { replaceService } from '../../core/context.js';
+
+replaceService(ctx, 'posts', customPostService);
+replaceService(ctx, 'auth', customAuthService);
+```
+
+核心控制器在请求时从 Cordis Context 解析服务，因此替换在 `bootstrap` 阶段生效。
+
+## Effects
+
+所有定时器、连接、文件监听和外部资源都应登记 Effect：
+
+```ts
+ctx.effect(() => {
+  const pool = createPool(config);
+  return () => pool.end();
+});
+```
+
+插件 Fiber 销毁时反向执行 disposer。不需要再维护手动的 `deactivate`。
+
+## Web Boundary
+
+Cordis 不提供 Express 的 `Request`、`Response`、Router 或 EJS。需要 HTTP 的插件通过 `ctx.web.register` 注册路由，通过 Manifest 的 `views`/`public` 提供模板和静态资源。不要把请求对象保存到全局状态。
 
 ## Trusted Code
 
-插件是完全可信代码，没有沙箱。插件可以访问容器、Express、Hook、底层数据库和文件系统。唯一超级管理员数据库约束仍不可绕过。
+插件是完全可信代码，没有沙箱。插件可以访问容器、Express、事件、底层数据库和文件系统。安装器会校验 Manifest、入口路径和压缩包路径，但不会隔离插件代码。
 
 ## Disable And Uninstall
 
-停用和排序在重启后完整生效。卸载会调用 `deactivate`、清理 Hook 和服务端区块渲染器、删除目录和注册记录。Express 已挂载的中间件不能安全移除，因此卸载后应重启进程。
+启停状态和安装记录由 LinearPress Plugin Registry 保存。停用、安装和卸载后默认重启进程，因为 Express 已挂载的路由不能安全地从 App 中删除。Fiber 销毁会自动清理 Effect、事件和 Cordis 服务。

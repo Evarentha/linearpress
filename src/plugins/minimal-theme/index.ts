@@ -5,5 +5,8 @@
  * Made by MoyuZJ in China with ♥
  */
 
-import type { PluginEntry } from '../../types/plugin.js';
-export const activate: PluginEntry['activate'] = ({ logger }) => logger.info('theme ready');
+import type { Context } from 'cordis';
+
+export default function minimalTheme(context: Context): void {
+  context.logger.info('theme ready');
+}

@@ -10,6 +10,9 @@
   const output = document.querySelector('#content_json');
   const definitions = new Map();
   let blocks = root ? JSON.parse(root.dataset.content || '[]') : [];
+  // 必须在 registerBlock 之前声明：registerBlock 在根节点存在时会立即 render()，
+  // 而 render() 依赖 sync —— 若后置声明会触发 TDZ 错误。
+  const sync = () => { if (output) output.value = JSON.stringify(blocks); };
 
   const registerBlock = (type, definition) => {
     definitions.set(type, { label: type, description: '内容区块', fields: [], ...definition });
@@ -29,7 +32,6 @@
   registerBlock('custom-html', { label: 'HTML', description: '自定义 HTML 代码', fields: [{ key: 'content', control: 'textarea', placeholder: '<div>...</div>', default: '', className: 'lp-code-field' }] });
 
   if (!root || !output) return;
-  const sync = () => { output.value = JSON.stringify(blocks); };
   const createBlock = (type, definition) => ({ type, ...Object.fromEntries(definition.fields.map((field) => [field.key, field.default ?? ''])) });
   const createField = (block, field) => {
     let element;

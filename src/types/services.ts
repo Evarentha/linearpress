@@ -81,4 +81,6 @@ export interface PluginService {
 export interface ConfigService {
   get(): MaybePromise<SiteConfig>;
   set(patch: Partial<SiteConfig>): MaybePromise<void>;
+  isOobeCompleted(): MaybePromise<boolean>;
+  completeOobe(): MaybePromise<void>;
 }

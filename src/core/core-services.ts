@@ -9,8 +9,9 @@ import type { Context } from 'cordis';
 import type { HookSystem } from './hook-system.js';
 import type { PluginManager } from './plugin-manager.js';
 import * as commentData from '../services/comment.service.js';
-import { getBaseConfig, setBaseConfig } from '../services/config.service.js';
+import { completeOobe, getBaseConfig, isOobeCompleted, setBaseConfig } from '../services/config.service.js';
 import * as groupData from '../services/group.service.js';
+import { maintenance } from './maintenance.js';
 import { hasPermission } from '../services/permission.service.js';
 import { installFromNpm, installFromZip } from '../services/plugin-installer.js';
 import * as postData from '../services/post.service.js';
@@ -126,16 +127,58 @@ export function registerCoreServices(context: Context, hooks: HookSystem, manage
 
   const pluginService: PluginService = {
     list: () => manager.database.prepare('SELECT * FROM plugins ORDER BY load_order').all() as Plugin[],
-    setEnabled: async (id, enabled) => { const payload = await hooks.trigger('plugin:beforeEnable', { id, enabled }); manager.setEnabled(payload.id, payload.enabled); await hooks.trigger('plugin:afterEnable', payload); },
+    setEnabled: async (id, enabled) => {
+      const payload = await hooks.trigger('plugin:beforeEnable', { id, enabled });
+      maintenance.enter('plugin', manager.database);
+      const task = maintenance.addTask(`enable-${id}`, `${enabled ? '启用' : '停用'}插件 ${id}`);
+      try {
+        manager.setEnabled(payload.id, payload.enabled);
+        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
+      } finally {
+        maintenance.exit(manager.database);
+      }
+      await hooks.trigger('plugin:afterEnable', payload);
+    },
     setLoadOrder: async (id, order) => { const payload = await hooks.trigger('plugin:beforeReorder', { id, order }); manager.setLoadOrder(payload.id, payload.order); await hooks.trigger('plugin:afterReorder', payload); },
     getConfig: <T>(id: string): T | null => { const row = manager.database.prepare('SELECT config FROM plugins WHERE id=?').get(id) as { config: string | null } | undefined; return row?.config ? JSON.parse(row.config) as T : null; },
     setConfig: (id, config) => { manager.database.prepare('UPDATE plugins SET config=? WHERE id=?').run(JSON.stringify(config), id); },
-    uninstall: async (id) => { const payload = await hooks.trigger('plugin:beforeUninstall', { id }); await manager.uninstall(payload.id); await hooks.trigger('plugin:afterUninstall', payload); },
-    installNpm: (spec) => installFromNpm(manager, spec),
-    installZip: (buffer) => installFromZip(manager, buffer)
+    uninstall: async (id) => {
+      const payload = await hooks.trigger('plugin:beforeUninstall', { id });
+      maintenance.enter('plugin', manager.database);
+      const task = maintenance.addTask(`uninstall-${id}`, `卸载插件 ${id}`);
+      try {
+        await manager.uninstall(payload.id);
+        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
+      } finally {
+        maintenance.exit(manager.database);
+      }
+      await hooks.trigger('plugin:afterUninstall', payload);
+    },
+    installNpm: async (spec) => {
+      maintenance.enter('plugin', manager.database);
+      const task = maintenance.addTask('install-npm', `正在安装 ${spec} ...`);
+      try {
+        const result = await installFromNpm(manager, spec);
+        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
+        return result;
+      } finally {
+        maintenance.exit(manager.database);
+      }
+    },
+    installZip: async (buffer) => {
+      maintenance.enter('plugin', manager.database);
+      const task = maintenance.addTask('install-zip', '正在解压插件文件');
+      try {
+        const result = await installFromZip(manager, buffer);
+        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
+        return result;
+      } finally {
+        maintenance.exit(manager.database);
+      }
+    }
   };
   context.provide('plugins', pluginService);
 
-  const config: ConfigService = { get: () => hooks.trigger('site:config', getBaseConfig()), set: setBaseConfig };
+  const config: ConfigService = { get: () => hooks.trigger('site:config', getBaseConfig()), set: setBaseConfig, isOobeCompleted, completeOobe };
   context.provide('config', config);
 }

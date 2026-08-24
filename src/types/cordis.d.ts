@@ -22,6 +22,12 @@ declare module 'cordis' {
     exec(sql: string): Promise<void>;
   }
 
+  interface LinearPressAdmin {
+    registerMenu(entry: { title: string; link: string; icon?: string }): void;
+    registerPanel(html: string): void;
+    registerCustomSetting(entry: { label: string; link?: string; html?: string }): void;
+  }
+
   export class Fiber {
     state: number;
     dispose(): Promise<void>;
@@ -30,10 +36,11 @@ declare module 'cordis' {
     readonly fiber: Fiber;
     reflect: any;
     logger: any;
-    linearpress: { web: LinearPressWeb; db: any; hooks: LinearPressHooks };
+    linearpress: { web: LinearPressWeb; db: any; hooks: LinearPressHooks; admin: LinearPressAdmin };
     hooks: LinearPressHooks;
     db: any;
     web: LinearPressWeb;
+    admin: LinearPressAdmin;
     database: any;
     databaseService: LinearPressDatabase;
     sessionStoreFactory: any;

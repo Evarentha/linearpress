@@ -15,16 +15,16 @@
     status.className = 'notice' + (ok ? ' notice-ok' : ' notice-error');
   }
 
-  // 校验失败/安装失败时弹提示
   function promptError(message) {
     showStatus(message, false);
     alert(message);
   }
 
-  function restartAfterInstall(plugin) {
-    showStatus('插件 ' + plugin.name + ' v' + plugin.version + ' 已安装，必须重启项目后才能生效。', true);
+  function restartAfterInstall(plugins) {
+    var names = (plugins || []).map(function (plugin) { return plugin.name + ' v' + plugin.version; }).join('、');
+    showStatus('插件 ' + names + ' 已安装，必须重启项目后才能生效。', true);
     if (!window.confirm('插件已安装，但必须重启项目才能生效。现在自动重启并重新加载吗？')) {
-      showStatus('插件已安装，但尚未重启项目。确认后请手动重启服务，插件才能生效。', true);
+      showStatus('插件已安装，但尚未重启项目。请手动重启服务，插件才能生效。', true);
       return;
     }
     showStatus('正在重启项目，请稍候…', true);
@@ -37,7 +37,17 @@
       .catch(function (error) { showStatus('插件已安装，但自动重启失败：' + error.message + '。请手动重启服务。', false); });
   }
 
-  function handleInstallSuccess(plugin) { restartAfterInstall(plugin); }
+  function postJson(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (response) { return response.json().catch(function () { return null; }).then(function (data) { return { status: response.status, data: data }; }); });
+  }
+
+  function uploadZip(file) {
+    return fetch('/admin/plugins/install-zip', { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file })
+      .then(function (response) { return response.json().catch(function () { return null; }).then(function (data) { return { status: response.status, data: data }; }); });
+  }
+
+  function handleSuccess(plugin) { restartAfterInstall([plugin]); }
 
   var npmForm = document.getElementById('npm-install-form');
   npmForm.addEventListener('submit', function (event) {
@@ -45,21 +55,14 @@
     var input = document.getElementById('npm-package-name');
     var spec = input.value.trim();
     if (!spec) { promptError('请输入 npm 包名'); return; }
+    if (!/^(@[a-zA-Z0-9._-]+\/)?[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?$/.test(spec)) { promptError('包名格式应为 @scope/plugin-name（可选 @version）'); return; }
     var button = npmForm.querySelector('button');
     button.disabled = true;
-    fetch('/admin/plugins/install-npm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ package: spec })
-    })
-      .then(function (response) { return response.json().catch(function () { return null; }).then(function (data) { return { status: response.status, data: data }; }); })
+    postJson('/admin/plugins/install-npm', { package: spec })
       .then(function (result) {
         var data = result.data;
-        if (!data || !data.ok) {
-          promptError((data && data.message) || '安装失败，请检查服务器日志');
-          return;
-        }
-        handleInstallSuccess(data.plugin);
+        if (!data || !data.ok) { promptError((data && data.message) || '安装失败，请检查服务器日志'); return; }
+        handleSuccess(data.plugin);
       })
       .catch(function (error) { promptError('安装失败：' + error.message); })
       .finally(function () { button.disabled = false; });
@@ -69,26 +72,32 @@
   zipForm.addEventListener('submit', function (event) {
     event.preventDefault();
     var input = document.getElementById('zip-file');
-    var file = input.files && input.files[0];
-    if (!file) { promptError('请选择 .zip 压缩包'); return; }
-    if (!/\.zip$/i.test(file.name)) { promptError('只支持 .zip 压缩包'); return; }
+    var batch = document.getElementById('zip-batch');
+    var files = Array.prototype.slice.call(input.files || []);
+    if (!files.length) { promptError('请选择 .zip 压缩包'); return; }
     var button = zipForm.querySelector('button');
     button.disabled = true;
-    fetch('/admin/plugins/install-zip', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/zip' },
-      body: file
-    })
-      .then(function (response) { return response.json().catch(function () { return null; }).then(function (data) { return { status: response.status, data: data }; }); })
-      .then(function (result) {
-        var data = result.data;
-        if (!data || !data.ok) {
-          promptError((data && data.message) || '安装失败，请检查服务器日志');
-          return;
-        }
-        handleInstallSuccess(data.plugin);
-      })
-      .catch(function (error) { promptError('安装失败：' + error.message); })
-      .finally(function () { button.disabled = false; });
+    var installed = [];
+    var queue = batch.checked ? files : files.slice(0, 1);
+    var run = function (index) {
+      if (index >= queue.length) {
+        button.disabled = false;
+        if (installed.length) handleSuccess(installed);
+        else showStatus('没有可安装的压缩包。', false);
+        return;
+      }
+      var file = queue[index];
+      if (!/\.zip$/i.test(file.name)) { showStatus(file.name + ' 不是 .zip 压缩包，已跳过。', false); run(index + 1); return; }
+      showStatus('正在安装 ' + file.name + ' (' + (index + 1) + '/' + queue.length + ')…', true);
+      uploadZip(file)
+        .then(function (result) {
+          var data = result.data;
+          if (data && data.ok) installed.push(data.plugin);
+          else showStatus(file.name + '：' + ((data && data.message) || '安装失败'), false);
+        })
+        .catch(function (error) { showStatus(file.name + '：' + error.message, false); })
+        .finally(function () { run(index + 1); });
+    };
+    run(0);
   });
 })();

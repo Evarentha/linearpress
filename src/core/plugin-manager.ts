@@ -10,12 +10,13 @@ import type { Express, RequestHandler } from 'express';
 import fs from 'fs-extra';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { AdminExtensionRegistry, type AdminMenuEntry, type CustomSettingEntry, type PanelEntry } from './admin-extensions.js';
 import { registerBlock, unregisterPluginBlocks } from './block-registry.js';
 import { CordisRuntime } from './cordis-runtime.js';
 import type { SqliteDatabase } from './database.js';
 import type { HookSystem } from './hook-system.js';
 import type { RouterCollector } from './router-collector.js';
-import { createExpressWebAdapter, provideLinearPressServices, type LinearPressWeb } from './linearpress-services.js';
+import { createExpressWebAdapter, provideLinearPressServices, type LinearPressAdmin, type LinearPressWeb } from './linearpress-services.js';
 import type { CordisPlugin, PluginEntry, PluginLogger, PluginManifest } from '../types/plugin.js';
 
 interface PluginRow { id: string; enabled: number; load_order: number; }
@@ -33,14 +34,25 @@ export class PluginManager {
   readonly styleUrls: string[] = [];
   readonly scriptUrls: string[] = [];
   private readonly web: LinearPressWeb;
+  private readonly admin: LinearPressAdmin;
+  private readonly adminRegistry = new AdminExtensionRegistry();
 
   constructor(private app: Express, private infrastructureDb: SqliteDatabase, private hooks: HookSystem, private router: RouterCollector) {
     this.web = createExpressWebAdapter(this.router, this.middlewares, this.viewPaths, this.staticMounts, () => this.router.getCurrentPluginId());
-    provideLinearPressServices(this.context, { hooks: this.hooks, db: this.infrastructureDb, web: this.web });
+    this.admin = {
+      registerMenu: (entry) => this.adminRegistry.registerMenu(entry),
+      registerPanel: (html) => this.adminRegistry.registerPanel(html),
+      registerCustomSetting: (entry) => this.adminRegistry.registerCustomSetting(entry)
+    };
+    provideLinearPressServices(this.context, { hooks: this.hooks, db: this.infrastructureDb, web: this.web, admin: this.admin });
   }
 
   get context(): Context { return this.cordis.context; }
   get database(): SqliteDatabase { return this.infrastructureDb; }
+  get adminMenus(): AdminMenuEntry[] { return this.adminRegistry.listMenus(); }
+  get adminPanels(): PanelEntry[] { return this.adminRegistry.listPanels(); }
+  get customSettings(): CustomSettingEntry[] { return this.adminRegistry.listCustomSettings(); }
+  customSettingsFor(id: string): CustomSettingEntry[] { return this.adminRegistry.customSettingsFor(id); }
 
   discover(): PluginManifest[] {
     const root = path.join(process.cwd(), 'src', 'plugins');
@@ -66,8 +78,8 @@ export class PluginManager {
   }
 
   async bootstrapEnabled(): Promise<void> {
-    const insert = this.infrastructureDb.prepare(`INSERT INTO plugins(id,name,version,enabled,load_order) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, version=excluded.version`);
-    this.candidates.forEach((candidate, index) => insert.run(candidate.manifest.id, candidate.manifest.name, candidate.manifest.version, 1, (index + 1) * 10));
+    const insert = this.infrastructureDb.prepare(`INSERT INTO plugins(id,name,version,type,icon,description,enabled,load_order) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, version=excluded.version, type=excluded.type, icon=excluded.icon, description=excluded.description`);
+    this.candidates.forEach((candidate, index) => insert.run(candidate.manifest.id, candidate.manifest.name, candidate.manifest.version, candidate.manifest.type, candidate.manifest.icon ?? null, candidate.manifest.description ?? null, 1, (index + 1) * 10));
     const rows = this.infrastructureDb.prepare('SELECT id, enabled, load_order FROM plugins WHERE enabled=1 ORDER BY load_order ASC, id ASC').all() as PluginRow[];
     const byId = new Map(this.candidates.map((item) => [item.manifest.id, item]));
     this.loaded = [];
@@ -128,8 +140,9 @@ export class PluginManager {
   private async withPlugin<T>(id: string, callback: () => Promise<T> | T): Promise<T> {
     this.router.setCurrentPluginId(id);
     this.hooks.setCurrentPluginId(id);
+    this.adminRegistry.setCurrentPluginId(id);
     try { return await callback(); }
-    finally { this.router.setCurrentPluginId('core'); this.hooks.setCurrentPluginId('core'); }
+    finally { this.router.setCurrentPluginId('core'); this.hooks.setCurrentPluginId('core'); this.adminRegistry.setCurrentPluginId('core'); }
   }
 
   getLoadedIds(): string[] { return this.loaded.map((item) => item.candidate.manifest.id); }
@@ -145,6 +158,7 @@ export class PluginManager {
       unregisterPluginBlocks(id);
       this.loaded = this.loaded.filter((entry) => entry.candidate.manifest.id !== id);
     }
+    this.adminRegistry.removePlugin(id);
     for (let i = this.staticMounts.length - 1; i >= 0; i--) if (this.staticMounts[i].id === id) this.staticMounts.splice(i, 1);
     for (let i = this.styleUrls.length - 1; i >= 0; i--) if (this.styleUrls[i].startsWith(`/plugins/${id}/`)) this.styleUrls.splice(i, 1);
     for (let i = this.scriptUrls.length - 1; i >= 0; i--) if (this.scriptUrls[i].startsWith(`/plugins/${id}/`)) this.scriptUrls.splice(i, 1);

@@ -13,6 +13,7 @@ export interface PluginManifest {
   version: string;
   description?: string;
   author?: string;
+  icon?: string;
   type: 'backend' | 'frontend' | 'both' | 'theme' | 'driver';
   main: string;
   runtime?: 'legacy' | 'cordis';

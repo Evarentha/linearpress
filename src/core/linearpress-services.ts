@@ -17,10 +17,17 @@ export interface LinearPressWeb {
   staticDir(dir: string): void;
 }
 
+export interface LinearPressAdmin {
+  registerMenu(entry: { title: string; link: string; icon?: string }): void;
+  registerPanel(html: string): void;
+  registerCustomSetting(entry: { label: string; link?: string; html?: string }): void;
+}
+
 export interface LinearPressServices {
   hooks: HookSystem;
   db: SqliteDatabase;
   web: LinearPressWeb;
+  admin: LinearPressAdmin;
 }
 
 export function provideLinearPressServices(context: Context, services: LinearPressServices): void {
@@ -29,6 +36,7 @@ export function provideLinearPressServices(context: Context, services: LinearPre
   assign('hooks', services.hooks);
   assign('db', services.db);
   assign('web', services.web);
+  assign('admin', services.admin);
 }
 
 export function createExpressWebAdapter(router: RouterCollector, middleware: RequestHandler[], viewPaths: string[], staticMounts: Array<{ id: string; dir: string }>, pluginId: () => string): LinearPressWeb {

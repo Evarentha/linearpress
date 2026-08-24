@@ -12,7 +12,7 @@ interface GroupRow extends Omit<Group, 'permissions'> { permissions: string; }
 const hydrate = (row: GroupRow): Group => ({ ...row, permissions: JSON.parse(row.permissions) as string[] });
 const registry = new Map<string, string>([
   ['admin:access', '访问后台'], ['post:create', '创建文章'], ['post:edit', '编辑文章'], ['post:delete', '删除文章'],
-  ['comment:create', '创建评论'], ['comment:moderate', '审核评论'], ['user:manage', '管理用户'], ['group:manage', '管理权限组'], ['plugin:manage', '管理插件']
+  ['comment:create', '创建评论'], ['comment:moderate', '审核评论'], ['user:manage', '管理用户'], ['group:manage', '管理权限组'], ['plugin:manage', '管理插件'], ['site:manage', '管理站点设置']
 ]);
 
 export const PERMISSIONS = [...registry.keys()];

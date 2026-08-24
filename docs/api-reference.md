@@ -91,6 +91,22 @@ Manifest 可以声明权限：
 await ctx.permissions.register('media:upload', '上传媒体');
 ```
 
+## Admin Extensions
+
+插件可以在控制台注册二级菜单、注入详情面板 HTML，以及暴露自定义配置入口：
+
+```ts
+export default function plugin(ctx: Context) {
+  ctx.admin.registerMenu({ title: '我的功能', link: '/admin/my-feature', icon: '✦' });
+  ctx.admin.registerPanel('<p>右侧详情面板注入的内容</p>');
+  ctx.admin.registerCustomSetting({ label: '自定义配置', link: '/admin/plugins/my-plugin/custom' });
+}
+```
+
+- `registerMenu`：左侧功能导航的二级菜单（也可用 `admin:menu` Hook，二者会合并）。
+- `registerPanel`：右侧详情面板 HTML。
+- `registerCustomSetting`：插件列表中展示的 CustomSetting 按钮；插件未注册时该按钮不渲染。
+
 ## Block Injection
 
 服务端：

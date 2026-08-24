@@ -1,0 +1,16 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
+<div class="page-head"><h1><%= plugin.name %> 设置</h1><p class="eyebrow"><%= plugin.id %> / v<%= plugin.version %></p></div>
+<% if (notice === 'saved') { %><p class="notice notice-ok">配置已保存。</p><% } %>
+<section class="group-panel" style="max-width:720px">
+  <div class="group-heading"><div><h2>标准配置</h2><p class="eyebrow">插件暴露的 config JSON</p></div></div>
+  <form method="post" action="/admin/plugins/<%= plugin.id %>/settings" class="editor-form">
+    <label class="editor-field">配置 (JSON)<textarea name="config" class="lp-code-field" rows="16"><%= configJson %></textarea></label>
+    <button class="button" type="submit">保存配置</button>
+  </form>
+</section>

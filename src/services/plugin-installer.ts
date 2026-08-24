@@ -134,7 +134,7 @@ function installFromDir(manager: PluginManager, rootDir: string): PluginInstallR
   fs.ensureDirSync(pluginsRoot);
   fs.copySync(rootDir, dest);
   const maxOrder = (manager.database.prepare('SELECT COALESCE(MAX(load_order),0) AS m FROM plugins').get() as { m: number }).m;
-  manager.database.prepare('INSERT INTO plugins(id,name,version,enabled,load_order) VALUES(?,?,?,1,?)').run(manifest.id, manifest.name, manifest.version, maxOrder + 10);
+  manager.database.prepare('INSERT INTO plugins(id,name,version,type,icon,description,enabled,load_order) VALUES(?,?,?,?,?,?,1,?)').run(manifest.id, manifest.name, manifest.version, manifest.type, manifest.icon ?? null, manifest.description ?? null, maxOrder + 10);
   return { id: manifest.id, name: manifest.name, version: manifest.version };
 }
 

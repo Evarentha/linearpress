@@ -1,0 +1,74 @@
+<!--
+  Author: MoyuZJ
+  Team: LinearTeam
+  Contact: linearteam@foxmail.com
+  Made by MoyuZJ in China with ♥
+-->
+
+<div class="page-head"><h1>站点设置</h1></div>
+<% if (notice) { %><p class="notice notice-ok">已保存。</p><% } %>
+<nav class="settings-tabs">
+  <button type="button" class="settings-tab active" data-tab="site">站点信息</button>
+  <button type="button" class="settings-tab" data-tab="datetime">日期格式</button>
+  <button type="button" class="settings-tab" data-tab="domain">域名设置</button>
+  <button type="button" class="settings-tab" data-tab="permalink">路由格式</button>
+  <button type="button" class="settings-tab" data-tab="footer">页脚声明</button>
+</nav>
+
+<section class="settings-panel active" data-panel="site">
+  <h2>站点信息</h2>
+  <form method="post" action="/admin/settings/site" class="editor-form">
+    <label class="editor-field">站点名称 (siteName)<input name="siteName" value="<%= config.siteName %>" placeholder="LinearPress"></label>
+    <label class="editor-field">站点标题 (siteTitle)<input name="siteTitle" value="<%= config.siteTitle %>" placeholder="替换首页主标题 H1"></label>
+    <label class="editor-field">站点副标题 (siteSubtitle)<input name="siteSubtitle" value="<%= config.siteSubtitle %>" placeholder="替换首页副标题 H2"></label>
+    <label class="editor-field">站点介绍 (siteDescription)<textarea name="siteDescription" placeholder="默认不展示，供主题渲染使用"><%= config.siteDescription %></textarea></label>
+    <button class="button" type="submit">保存站点信息</button>
+  </form>
+</section>
+
+<section class="settings-panel" data-panel="datetime">
+  <h2>日期与时间格式</h2>
+  <form method="post" action="/admin/settings/datetime" class="editor-form">
+    <label class="editor-field">时区 / 时间源 (timeSource)<input name="timeSource" value="<%= config.timeSource %>" placeholder="SYSTEM 或 ISO 8601（如 2026-01-01T12:00:00）"><small>输入保留字 <code>SYSTEM</code> 强制使用服务器系统时间，或输入 ISO 8601 格式。</small></label>
+    <label class="editor-field">日期格式 (dateFormat)<select name="dateFormat"><% dateFormatOptions.forEach(option => { %><option value="<%= option.value %>" <%= config.dateFormat === option.value ? 'selected' : '' %>><%= option.label %></option><% }) %></select></label>
+    <label class="editor-field">时间格式 (timeFormat)<select name="timeFormat"><% timeFormatOptions.forEach(option => { %><option value="<%= option.value %>" <%= config.timeFormat === option.value ? 'selected' : '' %>><%= option.label %></option><% }) %></select></label>
+    <p class="preview-line">当前时间预览：<strong><%= formatDate(null) %></strong></p>
+    <button class="button" type="submit">保存日期格式</button>
+  </form>
+</section>
+
+<section class="settings-panel" data-panel="domain">
+  <h2>域名设置</h2>
+  <form method="post" action="/admin/settings/domain" class="editor-form">
+    <label class="editor-field switch-field"><span class="switch"><input type="checkbox" name="autoDetect" <%= config.autoDetect ? 'checked' : '' %>><span class="slider"></span></span><span>自动检测开关 (autoDetect)：开启后不进行任何重定向，保持用户访问的当前域名。</span></label>
+    <label class="editor-field">主域名 (primaryDomain)<input name="primaryDomain" value="<%= config.primaryDomain %>" placeholder="www.lp.cn"></label>
+    <div class="editor-field">备用域名 (backupDomains)<div id="domain-list"><% if (config.backupDomains.length) { config.backupDomains.forEach(domain => { %><div class="domain-row"><input name="backupDomains" value="<%= domain %>" placeholder="http://cdn.lp.cn:1234"><button type="button" class="domain-remove">[-]</button></div><% }) } else { %><div class="domain-row"><input name="backupDomains" placeholder="http://cdn.lp.cn:1234"><button type="button" class="domain-remove">[-]</button></div><% } %></div><button type="button" id="domain-add" class="button button-mini">[+] 添加备用域名</button><small>通过备用域名访问时不触发重定向；其他域名会 301 跳转到主域名。</small></div>
+    <button class="button" type="submit">保存域名设置</button>
+  </form>
+</section>
+
+<section class="settings-panel" data-panel="permalink">
+  <h2>路由格式</h2>
+  <form method="post" action="/admin/settings/permalink" class="editor-form">
+    <div class="radio-grid"><% permalinkOptions.forEach(option => { %><label class="radio-row"><input type="radio" name="permalink" value="<%= option.value %>" <%= config.permalink === option.value ? 'checked' : '' %>><code><%= option.label %></code></label><% }) %></div>
+    <button class="button" type="submit">保存路由格式</button>
+  </form>
+</section>
+
+<section class="settings-panel" data-panel="footer">
+  <h2>页脚声明</h2>
+  <form method="post" action="/admin/settings/footer" class="editor-form">
+    <div class="editor-field">版权声明预设<div class="radio-grid"><label class="radio-row"><input type="radio" name="footerCopyright" value="powered-by" <%= config.footerCopyright === 'powered-by' ? 'checked' : '' %>><span>由 LinearPress 强力驱动，基于 CordisJS。正在运行的版本为：<%= LINEARPRESS_VERSION %>。</span></label><label class="radio-row"><input type="radio" name="footerCopyright" value="running-on" <%= config.footerCopyright === 'running-on' ? 'checked' : '' %>><span>本站正在运行基于 CordisJS 的 LinearPress 版本 <%= LINEARPRESS_VERSION %>。</span></label><label class="radio-row"><input type="radio" name="footerCopyright" value="none" <%= config.footerCopyright === 'none' ? 'checked' : '' %>><span>不显示 (None)</span></label></div></div>
+    <div class="editor-field">备案信息<div class="icp-row"><select name="icpProvince"><option value="">省份简称</option><% ['京','津','冀','晋','蒙','辽','吉','黑','沪','苏','浙','皖','闽','赣','鲁','豫','鄂','湘','粤','桂','琼','渝','川','贵','云','藏','陕','甘','青','宁','新'].forEach(p => { %><option value="<%= p %>" <%= config.icpProvince === p ? 'selected' : '' %>><%= p %></option><% }) %></select><span>ICP备</span><input name="icpNumber" value="<%= config.icpNumber %>" placeholder="备案号"><span>号</span></div><div class="icp-row"><span>国公网安备第</span><input name="policeNumber" value="<%= config.policeNumber %>" placeholder="公网安备号"><span>号</span></div><small>提供「不显示」选项：清空备案号即可。</small></div>
+    <label class="editor-field">自定义 HTML 页脚<textarea name="footerHtml" class="lp-code-field" placeholder="<a href='#'>可信网站</a>"><%= config.footerHtml %></textarea><small>常用于放置第三方认证徽章或友链，如“可信网站”“本站由某某云提供计算服务”。</small></label>
+    <button class="button" type="submit">保存页脚声明</button>
+  </form>
+</section>
+
+<section class="group-panel maintenance-panel">
+  <h2>维护模式</h2>
+  <p>手动开启维护模式后，普通访问会被静态维护页拦截，管理员仍可通过 <code>/login</code> 与 <code>/admin</code> 访问控制台。</p>
+  <form method="post" action="/admin/maintenance/toggle"><button class="button <%= maintenanceEnabled ? 'danger' : '' %>" type="submit"><%= maintenanceEnabled ? '关闭维护模式' : '开启维护模式' %></button></form>
+</section>
+
+<script src="/js/settings.js"></script>

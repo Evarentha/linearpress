@@ -45,32 +45,56 @@ async function request(route: string, init: RequestInit = {}): Promise<Response>
   return response;
 }
 
+const form = (fields: Record<string, string>) => new URLSearchParams(fields);
+const postForm = (route: string, fields: Record<string, string>) => request(route, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form(fields) });
+
 try {
   let response = await request('/');
   assert.equal(response.status, 302, 'clean install should enter OOBE');
   assert.equal(response.headers.get('location'), '/oobe');
-  response = await request('/oobe');
-  assert.equal(response.status, 200, 'OOBE page should render');
 
-  const oobeBody = new URLSearchParams({ username: 'rootadmin', email: 'root@example.com', password: 'pass1234', password_confirmation: 'pass1234' });
-  response = await request('/oobe', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: oobeBody });
-  assert.equal(response.status, 302, 'OOBE should create and sign in the super administrator');
-  assert.equal(response.headers.get('location'), '/admin');
+  response = await request('/oobe');
+  assert.equal(response.status, 200, 'OOBE welcome page should render');
+  assert.match(await response.text(), /欢迎来到 LinearPress/);
+
+  // Step 1 → 2
+  response = await postForm('/oobe', { step: '1' });
+  assert.equal(response.status, 302, 'welcome step should advance');
+  assert.equal(response.headers.get('location'), '/oobe');
+
+  // Step 2 → create super admin
+  response = await postForm('/oobe', { step: '2', username: 'rootadmin', email: 'root@example.com', password: 'pass1234', password_confirmation: 'pass1234' });
+  assert.equal(response.status, 302, 'OOBE should create the super administrator');
+  assert.equal(response.headers.get('location'), '/oobe');
   assert.equal((db.prepare('SELECT COUNT(*) count FROM users WHERE is_super_admin=1').get() as { count: number }).count, 1);
+
+  // Step 3 → site info
+  response = await postForm('/oobe', { step: '3', siteName: 'Smoke Site', siteTitle: 'Smoke Title', siteSubtitle: 'Smoke Subtitle', siteDescription: 'Smoke Description' });
+  assert.equal(response.status, 302, 'site info step should advance');
+  assert.equal(response.headers.get('location'), '/oobe');
+
+  // Step 4 → complete
+  response = await postForm('/oobe', { step: '4' });
+  assert.equal(response.status, 302, 'OOBE should complete and enter admin');
+  assert.equal(response.headers.get('location'), '/admin');
 
   response = await request('/oobe');
   assert.equal(response.status, 302, 'completed OOBE cannot run again');
   assert.equal(response.headers.get('location'), '/');
+
   response = await request('/admin/groups');
   assert.equal(response.status, 200, 'super administrator should access groups');
   response = await request('/admin/plugins');
   assert.equal(response.status, 200, 'super administrator should access plugins');
+  response = await request('/admin/settings');
+  assert.equal(response.status, 200, 'super administrator should access site settings');
   response = await request('/admin/seo');
   assert.equal(response.status, 200, 'super administrator should access plugin routes');
 
   response = await request('/');
   assert.equal(response.status, 200);
   const homeHtml = await response.text();
+  assert.match(homeHtml, /Smoke Title/, 'home page should render the configured site title');
   const modernEditorInstalled = fs.existsSync(path.join(process.cwd(), 'src', 'plugins', 'modern-editor', 'plugin.json'));
   assert.equal(homeHtml.includes('/plugins/'), modernEditorInstalled, 'plugin assets should match discovered workspace plugins');
 
@@ -85,8 +109,8 @@ try {
   assert.equal(response.status, 302, 'duplicate title should still save');
   assert.ok(db.prepare("SELECT id FROM posts WHERE slug='smoke-post-2'").get(), 'duplicate slug should receive a numeric suffix');
 
-  response = await request('/post/smoke-post');
-  assert.equal(response.status, 200, 'published post should render');
+  response = await request('/posts/smoke-post');
+  assert.equal(response.status, 200, 'published post should render via the configured permalink');
   const postHtml = await response.text();
   assert.match(postHtml, /Responses/, 'later-loaded theme should override the post view');
   assert.match(postHtml, /Plugin-independent content/, 'core content should render without example plugins');

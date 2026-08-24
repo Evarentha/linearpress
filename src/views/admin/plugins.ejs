@@ -9,15 +9,16 @@
 <section class="plugin-install">
   <h2>安装插件</h2>
   <form id="npm-install-form">
-    <input type="text" id="npm-package-name" placeholder="npm 包名（如 linearpress-plugin-name 或 name@1.0.0）" autocomplete="off" required>
+    <input type="text" id="npm-package-name" placeholder="@scope/plugin-name 或 plugin-name@1.0.0" autocomplete="off" required>
     <button type="submit" class="button">从 npm 安装</button>
   </form>
   <form id="zip-install-form">
-    <input type="file" id="zip-file" accept=".zip,application/zip,application/x-zip-compressed" required>
+    <input type="file" id="zip-file" accept=".zip,application/zip,application/x-zip-compressed" multiple required>
+    <label class="batch-toggle"><input type="checkbox" id="zip-batch"> <span>批量安装</span></label>
     <button type="submit" class="button">上传 ZIP 安装</button>
   </form>
   <p id="install-status" class="notice" hidden></p>
 </section>
-<ol class="plugin-list" id="plugin-list"><% plugins.forEach(plugin => { %><li draggable="true" data-plugin-id="<%= plugin.id %>"><span class="drag-handle">::</span><div class="plugin-info"><strong><%= plugin.name %></strong><small><%= plugin.id %> / v<%= plugin.version %> / order <%= plugin.load_order %></small></div><span class="plugin-status"><%= plugin.enabled ? '启用' : '停用' %></span><% if (plugin.id === 'mysql-plugin') { %><a class="plugin-settings-link" href="/admin/plugins/mysql-plugin/settings">插件设置</a><% } %><form method="post" action="/admin/plugins/<%= plugin.id %>/toggle"><button><%= plugin.enabled ? '停用' : '启用' %></button></form><% if (!builtinPlugins.includes(plugin.id)) { %><form method="post" action="/admin/plugins/<%= plugin.id %>/uninstall" onsubmit="return confirm('卸载将删除插件目录，继续吗？')"><button>卸载</button></form><% } %></li><% }) %></ol><p id="sort-status" class="notice" hidden>顺序已保存。</p>
+<ol class="plugin-list" id="plugin-list"><% plugins.forEach(plugin => { %><li draggable="true" data-plugin-id="<%= plugin.id %>"><span class="drag-handle">::</span><div class="plugin-icon"><% if (plugin.icon) { %><%- plugin.icon %><% } else { %><%= (plugin.name || plugin.id)[0].toUpperCase() %><% } %></div><div class="plugin-info"><strong><%= plugin.name %></strong><small><%= plugin.id %> · v<%= plugin.version %><% if (plugin.description) { %> · <%= plugin.description %><% } %></small><small>order <%= plugin.load_order %></small></div><span class="plugin-status"><%= plugin.enabled ? '启用' : '停用' %></span><div class="plugin-actions"><% customSettingsFor(plugin.id).forEach(entry => { %><a class="button button-mini" href="<%= entry.link || ('/admin/plugins/' + plugin.id + '/settings') %>"><%= entry.label %></a><% }) %><a class="button button-mini" href="/admin/plugins/<%= plugin.id %>/settings">设置</a><form method="post" action="/admin/plugins/<%= plugin.id %>/toggle"><button class="button button-mini"><%= plugin.enabled ? '停用' : '启用' %></button></form><% if (!builtinPlugins.includes(plugin.id)) { %><form method="post" action="/admin/plugins/<%= plugin.id %>/uninstall" onsubmit="return confirm('删除将移除插件目录及其数据，继续吗？')"><button class="button button-mini danger">删除</button></form><% } %></div></li><% }) %></ol><p id="sort-status" class="notice" hidden>顺序已保存。</p>
 <script src="/js/plugin-sort.js"></script>
 <script src="/js/plugin-install.js"></script>

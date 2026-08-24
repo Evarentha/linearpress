@@ -64,10 +64,17 @@ export function runMigrations(): void {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       version TEXT NOT NULL,
+      type TEXT DEFAULT 'both',
+      icon TEXT,
+      description TEXT,
       enabled INTEGER DEFAULT 1,
       load_order INTEGER DEFAULT 0,
       config TEXT,
       installed_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_posts_status_created ON posts(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_comments_post_status ON comments(post_id, status);
@@ -77,6 +84,11 @@ export function runMigrations(): void {
   insertGroup.run('admin', JSON.stringify(['*']));
   insertGroup.run('editor', JSON.stringify(['admin:access','post:create','post:edit','post:delete','comment:moderate']));
   insertGroup.run('subscriber', JSON.stringify(['comment:create']));
+
+  const pluginColumns = db.prepare("PRAGMA table_info('plugins')").all() as Array<{ name: string }>;
+  if (!pluginColumns.some((column) => column.name === 'type')) db.exec("ALTER TABLE plugins ADD COLUMN type TEXT DEFAULT 'both';");
+  if (!pluginColumns.some((column) => column.name === 'icon')) db.exec('ALTER TABLE plugins ADD COLUMN icon TEXT;');
+  if (!pluginColumns.some((column) => column.name === 'description')) db.exec('ALTER TABLE plugins ADD COLUMN description TEXT;');
 
   const columns = db.prepare("PRAGMA table_info('users')").all() as Array<{ name: string }>;
   if (!columns.some((column) => column.name === 'is_super_admin')) {
@@ -91,4 +103,9 @@ export function runMigrations(): void {
   const systemAdmin = db.prepare("SELECT users.id, users.group_id FROM users JOIN groups ON groups.id=users.group_id WHERE users.is_super_admin=1 AND groups.name='admin'").get() as { id: number; group_id: number } | undefined;
   if (systemAdmin) db.prepare('UPDATE users SET group_id=? WHERE group_id=? AND id<>?').run(editorGroup.id, systemAdmin.group_id, systemAdmin.id);
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_single_super_admin ON users(is_super_admin) WHERE is_super_admin = 1;');
+
+  // 兼容旧安装：已有超级管理员则视为已完成 OOBE，避免老站点被强制重新初始化。
+  if (db.prepare('SELECT id FROM users WHERE is_super_admin=1').get()) {
+    db.prepare("INSERT INTO settings(key,value) VALUES('oobeCompleted','1') ON CONFLICT(key) DO NOTHING").run();
+  }
 }

@@ -127,16 +127,11 @@ export function registerCoreServices(context: Context, hooks: HookSystem, manage
 
   const pluginService: PluginService = {
     list: () => manager.database.prepare('SELECT * FROM plugins ORDER BY load_order').all() as Plugin[],
+    // 启停/排序只是基础设施库的标志位写入，实际生效在重启后；
+    // 不进入维护模式，避免切换瞬间并发请求看到 503 闪烁。
     setEnabled: async (id, enabled) => {
       const payload = await hooks.trigger('plugin:beforeEnable', { id, enabled });
-      maintenance.enter('plugin', manager.database);
-      const task = maintenance.addTask(`enable-${id}`, `${enabled ? '启用' : '停用'}插件 ${id}`);
-      try {
-        manager.setEnabled(payload.id, payload.enabled);
-        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
-      } finally {
-        maintenance.exit(manager.database);
-      }
+      manager.setEnabled(payload.id, payload.enabled);
       await hooks.trigger('plugin:afterEnable', payload);
     },
     setLoadOrder: async (id, order) => { const payload = await hooks.trigger('plugin:beforeReorder', { id, order }); manager.setLoadOrder(payload.id, payload.order); await hooks.trigger('plugin:afterReorder', payload); },

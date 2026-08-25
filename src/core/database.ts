@@ -18,6 +18,11 @@ export interface SqliteDatabase { exec(sql: string): void; prepare(sql: string):
 export const db: SqliteDatabase = new DatabaseSync(dbPath) as unknown as SqliteDatabase;
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 
+/** 清理已过期的会话记录（启动时执行一次，并由 app 层定时调用）。 */
+export function purgeExpiredSessions(): void {
+  try { db.prepare('DELETE FROM sessions WHERE expired<?').run(Date.now()); } catch { /* 表尚未创建时忽略 */ }
+}
+
 export function runMigrations(): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, sess TEXT NOT NULL, expired INTEGER NOT NULL);

@@ -26,9 +26,14 @@ export class HookSystem {
     for (const [name, list] of this.handlers) this.handlers.set(name, list.filter((item) => item.pluginId !== pluginId));
   }
 
+  /** 是否注册了该 hook 的处理器（供热路径跳过 async 调度）。 */
+  hasHandlers(name: HookName): boolean { return (this.handlers.get(name)?.length ?? 0) > 0; }
+
   async trigger<K extends HookName>(name: K, payload: HookPayloadMap[K]): Promise<HookPayloadMap[K]> {
+    const list = this.handlers.get(name);
+    if (!list || !list.length) return payload; // 快速路径：无处理器时零开销返回
     let result = payload;
-    for (const item of (this.handlers.get(name) ?? []) as unknown as Handler<K>[]) result = (await item.callback(result)) ?? result;
+    for (const item of list as unknown as Handler<K>[]) result = (await item.callback(result)) ?? result;
     return result;
   }
 

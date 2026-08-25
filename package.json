@@ -9,7 +9,8 @@
     "db:init": "node scripts/run.js scripts/init-db.ts",
     "seed": "node scripts/run.js scripts/seed.ts",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
-    "test": "node scripts/run.js scripts/smoke.ts"
+    "test": "node scripts/run.js scripts/smoke.ts",
+    "sync": "sh scripts/sync-plugins.sh"
   },
   "dependencies": {
     "adm-zip": "^0.6.0",

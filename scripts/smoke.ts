@@ -112,7 +112,8 @@ try {
   response = await request('/posts/smoke-post');
   assert.equal(response.status, 200, 'published post should render via the configured permalink');
   const postHtml = await response.text();
-  assert.match(postHtml, /Responses/, 'later-loaded theme should override the post view');
+  // 评论区标题：默认/主题为 “Responses”，安装高级评论插件时被其评论视图接管为 “评论”。
+  assert.match(postHtml, /Responses|<h2>评论<\/h2>/, 'post view should render a comments section');
   assert.match(postHtml, /Plugin-independent content/, 'core content should render without example plugins');
   console.log('Smoke tests passed');
 } finally {

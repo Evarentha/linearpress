@@ -78,8 +78,21 @@ export class PluginManager {
   }
 
   async bootstrapEnabled(): Promise<void> {
-    const insert = this.infrastructureDb.prepare(`INSERT INTO plugins(id,name,version,type,icon,description,enabled,load_order) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, version=excluded.version, type=excluded.type, icon=excluded.icon, description=excluded.description`);
-    this.candidates.forEach((candidate, index) => insert.run(candidate.manifest.id, candidate.manifest.name, candidate.manifest.version, candidate.manifest.type, candidate.manifest.icon ?? null, candidate.manifest.description ?? null, 1, (index + 1) * 10));
+    // 注册表同步：单事务批量写入；内容未变化的插件跳过 UPDATE，减少每次启动的写放大。
+    const upsert = this.infrastructureDb.prepare(`INSERT INTO plugins(id,name,version,type,icon,description,enabled,load_order) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, version=excluded.version, type=excluded.type, icon=excluded.icon, description=excluded.description`);
+    const selectRow = this.infrastructureDb.prepare('SELECT name,version,type,icon,description FROM plugins WHERE id=?');
+    this.infrastructureDb.exec('BEGIN IMMEDIATE');
+    try {
+      this.candidates.forEach((candidate, index) => {
+        const m = candidate.manifest;
+        const existing = selectRow.get(m.id) as { name: string; version: string; type: string; icon: string | null; description: string | null } | undefined;
+        const icon = m.icon ?? null;
+        const description = m.description ?? null;
+        if (existing && existing.name === m.name && existing.version === m.version && existing.type === m.type && existing.icon === icon && existing.description === description) return;
+        upsert.run(m.id, m.name, m.version, m.type, icon, description, 1, (index + 1) * 10);
+      });
+      this.infrastructureDb.exec('COMMIT');
+    } catch (error) { this.infrastructureDb.exec('ROLLBACK'); throw error; }
     const rows = this.infrastructureDb.prepare('SELECT id, enabled, load_order FROM plugins WHERE enabled=1 ORDER BY load_order ASC, id ASC').all() as PluginRow[];
     const byId = new Map(this.candidates.map((item) => [item.manifest.id, item]));
     this.loaded = [];

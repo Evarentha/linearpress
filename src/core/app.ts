@@ -8,13 +8,15 @@
 import express, { type NextFunction, type Request, type Response } from 'express';
 import expressLayouts from 'express-ejs-layouts';
 import session from 'express-session';
+import crypto from 'node:crypto';
+import fs from 'fs-extra';
 import path from 'node:path';
 import { registerCoreRoutes } from '../controllers/routes.js';
 import { getBaseConfig } from '../services/config.service.js';
 import { formatDate } from './datetime.js';
 import { registerCoreServices } from './core-services.js';
 import { setActiveContext } from './context.js';
-import { db, runMigrations } from './database.js';
+import { db, purgeExpiredSessions, runMigrations } from './database.js';
 import { HookSystem } from './hook-system.js';
 import { maintenance } from './maintenance.js';
 import { postUrl } from './permalinks.js';
@@ -22,7 +24,7 @@ import { PluginManager } from './plugin-manager.js';
 import { RouterCollector } from './router-collector.js';
 import { SQLiteSessionStore } from './session-store.js';
 import { LINEARPRESS_VERSION } from './version.js';
-import type { Post } from '../types/index.js';
+import type { Post, SiteConfig } from '../types/index.js';
 
 const DEFAULT_ADMIN_MENU = [
   { title: '控制台', link: '/admin' },
@@ -35,6 +37,20 @@ const DEFAULT_ADMIN_MENU = [
 ];
 
 const normalizeHost = (value: string): string => String(value ?? '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+
+/** 会话签名密钥：优先环境变量；缺失时生成随机密钥并落盘，避免硬编码默认值可被伪造会话。 */
+function resolveSessionSecret(): string {
+  if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
+  const secretFile = path.join(process.cwd(), 'data', 'session-secret.json');
+  try {
+    const stored = fs.readJsonSync(secretFile) as { secret?: string } | undefined;
+    if (stored?.secret) return stored.secret;
+  } catch { /* 首次启动或文件损坏时重新生成 */ }
+  const secret = crypto.randomBytes(48).toString('base64url');
+  fs.ensureDirSync(path.dirname(secretFile));
+  fs.writeJsonSync(secretFile, { secret }, { mode: 0o600 });
+  return secret;
+}
 
 export async function createApp() {
   const app = express();
@@ -68,7 +84,28 @@ export async function createApp() {
     catch { return 'LINEARPRESS'; }
   });
 
-  app.use(session({ store: context.sessionStoreFactory(), secret: process.env.SESSION_SECRET ?? 'linearpress-development-secret', resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 * 14 } }));
+  app.use(session({ store: context.sessionStoreFactory(), secret: resolveSessionSecret(), resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' ? 'auto' : false, maxAge: 1000 * 60 * 60 * 24 * 14 } }));
+
+  // CSRF 纵深防御：校验非安全方法的 Origin/Referer 是否属于本站。
+  // SameSite=Lax 已拦截跨站 POST 携带 Cookie；此检查覆盖浏览器忽略 SameSite 的场景。
+  // 无 Origin 且无 Referer 的非浏览器客户端（curl/API）不受影响。
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    let siteConfig: SiteConfig | undefined;
+    try { siteConfig = await context.config.get(); } catch { /* 配置不可用时仅比对请求 Host */ }
+    const allowedHosts = new Set<string>([normalizeHost(req.headers.host ?? '')]);
+    if (siteConfig?.primaryDomain) allowedHosts.add(normalizeHost(siteConfig.primaryDomain));
+    for (const item of siteConfig?.backupDomains ?? []) allowedHosts.add(normalizeHost(item));
+    allowedHosts.delete('');
+    const origin = req.headers.origin;
+    const referer = req.headers.referer;
+    if (!origin && !referer) return next();
+    try {
+      const host = normalizeHost(new URL(origin ?? new URL(referer!).origin).host);
+      if (allowedHosts.has(host)) return next();
+    } catch { /* 解析失败按拒绝处理 */ }
+    return res.status(403).type('html').send('请求来源校验失败，请从站点页面正常提交。');
+  });
 
   // 维护模式：普通路由被拦截，/login 与 /admin 仍可访问。
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -137,13 +174,14 @@ export async function createApp() {
   router.applyToApp(app);
   app.use((req: Request, res: Response) => res.status(404).render('error', { title: '未找到', message: '请求的页面不存在。' }));
 
-  // 兜底错误处理：进入维护模式并 dump 错误日志。
+  // 兜底错误处理：记录并 dump 错误日志，返回一次性致命页。
+  // 单个请求异常不进入全站维护模式（避免攻击者用单请求把整站打成 503）；
+  // 全站维护仅由进程级致命错误（uncaughtException 等）或管理员/更新流程显式开启。
   app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
     console.error('[LinearPress] Unhandled error:', error);
-    maintenance.enter('fatal');
     maintenance.dumpError(error);
     if (res.headersSent) return;
-    res.status(500).type('html').send(maintenance.render());
+    res.status(500).type('html').send(maintenance.renderFatalPage());
   });
 
   return app;
@@ -163,6 +201,10 @@ export async function start(): Promise<void> {
   try {
     const app = await createApp();
     const port = Number(process.env.PORT ?? 3000);
+    // 定时清理过期会话（每小时），避免 sessions 表无限膨胀。
+    purgeExpiredSessions();
+    const sessionSweeper = setInterval(purgeExpiredSessions, 60 * 60 * 1000);
+    sessionSweeper.unref?.();
     app.listen(port, () => console.log(`LinearPress running at http://localhost:${port}`));
   } catch (error) {
     onFatal(error);

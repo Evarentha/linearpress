@@ -128,6 +128,12 @@ export class MaintenanceManager {
     catch { return this.writeStaticPage(); }
   }
 
+  /** 渲染一次性的 500 错误页：即时生成、不写盘、不改变维护模式状态。 */
+  renderFatalPage(): string {
+    const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>服务器错误 · ${esc(this.siteName())}</title><style>${MAINTENANCE_CSS}</style></head><body><main class="m-card"><p class="m-eyebrow">ERROR</p><h1>页面出错了</h1><section class="m-panel"><p class="m-please">服务器处理该请求时遇到异常，已记录日志。站点其余功能不受影响，请稍后重试。</p></section></main></body></html>`;
+    return html;
+  }
+
   /** 维护模式下的路径穿透：管理员仍可访问 /login 与 /admin。 */
   isBypassPath(pathname: string): boolean {
     if (pathname === '/login' || pathname.startsWith('/login')) return true;

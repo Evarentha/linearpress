@@ -16,8 +16,8 @@
 .admin-main{min-height:100vh;margin-left:230px;padding:28px clamp(18px,3.5vw,46px)}
 .admin-header{border-bottom:1px solid #ccc;padding-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:12px;text-transform:uppercase;letter-spacing:.1em}
 /* 汉堡按钮：桌面端隐藏，移动端固定于左上角 */
-.admin-burger{display:none;position:fixed;top:14px;left:14px;z-index:61;flex-direction:column;justify-content:center;gap:5px;width:40px;height:36px;padding:7px 9px;background:#1a1a1a;border:none;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)}
-.admin-burger span{display:block;height:2px;width:100%;background:#fff;border-radius:2px;transition:transform .22s ease,opacity .22s ease}
+.admin-burger{display:none;position:fixed;top:14px;left:14px;z-index:61;flex-direction:column;justify-content:center;gap:5px;width:40px;height:36px;padding:7px 9px;background:#1a1a1a;border:none;cursor:pointer}
+.admin-burger span{display:block;height:2px;width:100%;background:#fff;transition:transform .22s ease,opacity .22s ease}
 .admin-burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
 .admin-burger[aria-expanded="true"] span:nth-child(2){opacity:0}
 .admin-burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}

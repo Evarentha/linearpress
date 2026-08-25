@@ -15,6 +15,15 @@
 .nav-item.active{color:#fff;font-weight:700}
 .admin-main{min-height:100vh;margin-left:230px;padding:28px clamp(18px,3.5vw,46px)}
 .admin-header{border-bottom:1px solid #ccc;padding-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:20px;font-size:12px;text-transform:uppercase;letter-spacing:.1em}
+/* 汉堡按钮：桌面端隐藏，移动端固定于左上角 */
+.admin-burger{display:none;position:fixed;top:14px;left:14px;z-index:61;flex-direction:column;justify-content:center;gap:5px;width:40px;height:36px;padding:7px 9px;background:#1a1a1a;border:none;border-radius:8px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.admin-burger span{display:block;height:2px;width:100%;background:#fff;border-radius:2px;transition:transform .22s ease,opacity .22s ease}
+.admin-burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.admin-burger[aria-expanded="true"] span:nth-child(2){opacity:0}
+.admin-burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+/* 抽屉遮罩 */
+.admin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:58;opacity:0;pointer-events:none;transition:opacity .25s ease}
+.admin-overlay[data-open="true"]{opacity:1;pointer-events:auto}
 .admin-crumb{font-weight:700}
 .admin-user{color:#777}
 .admin-columns{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:26px;align-items:start}
@@ -124,6 +133,6 @@ button{border:0;border-radius:0;background:none;color:#1a1a1a;text-decoration:un
 .switch-row .dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#bbb}
 .switch-row .dot.on{background:#2e7d32}
 .preview-line{font-size:13px;color:#333}
-@media(max-width:800px){.admin-side{position:static;width:auto}.admin-side .brand{margin-bottom:20px}.admin-main{margin:0;padding:20px}.stats{grid-template-columns:repeat(2,1fr)}.page-head{margin-top:35px}.plugin-list li{flex-wrap:wrap}.plugin-info{min-width:180px}.plugin-status{margin-left:28px}.admin-columns{grid-template-columns:1fr}.admin-right{position:static}}
+@media(max-width:800px){.admin-side{position:fixed;inset:0 auto 0 0;width:250px;padding:64px 22px 28px;z-index:60;transform:translateX(-103%);transition:transform .28s cubic-bezier(.2,.8,.3,1);box-shadow:none}.admin-side.admin-side-open{transform:translateX(0);box-shadow:0 0 44px rgba(0,0,0,.35)}.admin-side .brand{margin-bottom:28px}.admin-burger{display:flex}.admin-main{margin:0;padding:20px}.admin-header{padding-top:6px;padding-left:52px}.admin-header .admin-crumb{text-transform:none}.stats{grid-template-columns:repeat(2,1fr)}.page-head{margin-top:35px}.plugin-list li{flex-wrap:wrap}.plugin-info{min-width:180px}.plugin-status{margin-left:28px}.admin-columns{grid-template-columns:1fr}.admin-right{position:static}}
 @media(max-width:620px){.lp-block-body{grid-template-columns:1fr}.lp-block-body select{max-width:140px}}
 @media(max-width:520px){.stats{grid-template-columns:1fr}.stats div{border-right:0;border-bottom:1px solid #ccc}.page-head{align-items:flex-start;flex-direction:column}.permission-grid{grid-template-columns:1fr}th,td{padding:11px 8px}}

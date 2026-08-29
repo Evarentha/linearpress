@@ -3,3 +3,12 @@ data/
 .env
 .DS_Store
 .pi/
+
+# 插件目录：由工作区同步/安装器写入，不纳入本体仓库（seo / minimal-theme 两个内置插件除外）
+src/plugins/*
+!src/plugins/seo/
+!src/plugins/minimal-theme/
+
+# 运行时日志
+.logs/
+logs/

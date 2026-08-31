@@ -1,8 +1,26 @@
 {
   "name": "linearpress",
   "version": "2.0.0",
-  "private": true,
+  "description": "A server-rendered blogging system powered by TypeScript, Express 5, EJS and SQLite with a Cordis plugin architecture.",
   "type": "module",
+  "main": "index.ts",
+  "files": [
+    "index.ts",
+    "src/core",
+    "src/controllers",
+    "src/services",
+    "src/types",
+    "src/public",
+    "src/views",
+    "src/plugins/seo",
+    "src/plugins/minimal-theme",
+    "scripts",
+    "config",
+    "docs",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ],
   "scripts": {
     "dev": "node scripts/run.js index.ts",
     "start": "node scripts/run.js index.ts",
@@ -10,8 +28,22 @@
     "seed": "node scripts/run.js scripts/seed.ts",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
     "test": "node scripts/run.js scripts/smoke.ts",
-    "sync": "sh scripts/sync-plugins.sh"
+    "sync": "sh scripts/sync-plugins.sh",
+    "prepublishOnly": "npm run typecheck"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": [
+    "blog",
+    "cms",
+    "cordis",
+    "express",
+    "ejs",
+    "sqlite",
+    "linearpress"
+  ],
+  "license": "MIT",
   "dependencies": {
     "adm-zip": "^0.6.0",
     "bcryptjs": "^2.4.3",

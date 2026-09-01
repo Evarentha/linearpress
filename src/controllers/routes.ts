@@ -8,6 +8,7 @@
 import type { Context } from 'cordis';
 import type { Request, Response } from 'express';
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { DATE_FORMAT_OPTIONS, TIME_FORMAT_OPTIONS } from '../core/datetime.js';
 import type { HookSystem } from '../core/hook-system.js';
 import { maintenance } from '../core/maintenance.js';
@@ -50,6 +51,51 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
     let step = Math.min(4, Math.max(1, Number(_req.session.oobeStep) || 1));
     if (adminExists && step < 3) step = 3;
     renderOobe(res, step, null, await config().get());
+  }));
+
+  // ------------------------------------------------------------------ 域名急救
+  // 该模块用于自动配置关闭且主/备用域名填错时自救：
+  // 只验证超级管理员密码（不暴露用户名），成功后仅允许修改域名相关配置。
+  const getSuperAdmin = async (): Promise<{ id: number; password_hash: string } | undefined> => {
+    return await databaseService().get<{ id: number; password_hash: string }>('SELECT id, password_hash FROM users WHERE is_super_admin=1 LIMIT 1');
+  };
+
+  router.register('get', '/rescue', wrap(async (_req, res) => {
+    if (_req.session.rescueVerified) return void res.redirect('/rescue/domain');
+    res.render('auth/rescue', { title: '域名急救', layout: false, error: null });
+  }));
+
+  const verifyRescue = wrap(async (req: Request, res: Response) => {
+    const admin = await getSuperAdmin();
+    const password = String(req.body.password ?? '');
+    const ok = admin ? await bcrypt.compare(password, admin.password_hash) : false;
+    if (!ok) {
+      res.status(401).render('auth/rescue', { title: '域名急救', layout: false, error: '超级管理员密码错误。' });
+      return;
+    }
+    req.session.rescueVerified = true;
+    res.redirect('/rescue/domain');
+  });
+
+  router.register('post', '/rescue', verifyRescue);
+  router.register('post', '/rescue/verify', verifyRescue);
+
+  const renderRescueDomain = wrap(async (req: Request, res: Response) => {
+    if (!req.session.rescueVerified) return void res.redirect('/rescue');
+    res.render('auth/rescue-domain', { title: '域名急救 · 域名配置', layout: false, config: await config().get(), notice: req.query.notice ?? '' });
+  });
+
+  router.register('get', '/rescue/domain', renderRescueDomain);
+  router.register('post', '/rescue/domain', wrap(async (req, res) => {
+    if (!req.session.rescueVerified) return void res.redirect('/rescue');
+    const raw = req.body.backupDomains;
+    const backups = (Array.isArray(raw) ? raw : raw ? [raw] : []).flatMap((value: string) => String(value).split(/\r?\n/)).map((value: string) => String(value).trim()).filter(Boolean);
+    await config().set({
+      autoDetect: String(req.body.autoDetect) === 'on',
+      primaryDomain: String(req.body.primaryDomain ?? '').trim(),
+      backupDomains: backups
+    });
+    res.redirect('/rescue/domain?notice=saved');
   }));
 
   router.register('post', '/oobe', wrap(async (req, res) => {

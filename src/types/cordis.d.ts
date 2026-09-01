@@ -6,6 +6,7 @@ declare module 'cordis' {
     middleware(handler: RequestHandler): void;
     viewDir(dir: string): void;
     staticDir(dir: string): void;
+    getRoutes(): Array<{ method: string; path: string; handler: RequestHandler[]; pluginId: string }>;
   }
 
   interface LinearPressHooks {
@@ -23,7 +24,7 @@ declare module 'cordis' {
   }
 
   interface LinearPressAdmin {
-    registerMenu(entry: { title: string; link: string; icon?: string }): void;
+    registerMenu(entry: { title: string; link: string; icon?: string; children?: Array<{ title: string; link: string; icon?: string }> }): void;
     registerPanel(html: string): void;
     registerCustomSetting(entry: { label: string; link?: string; html?: string }): void;
   }

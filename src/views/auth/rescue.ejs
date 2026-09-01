@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title><%= title %> · LinearPress</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f0f0f;color:#eee;font-family:Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .rescue{max-width:460px;width:100%;background:#161616;border:1px solid #333;border-radius:10px;padding:32px}
+  h1{font:400 28px Georgia,serif;margin:0 0 6px}
+  p{color:#bbb;line-height:1.7;font-size:14px}
+  .error{background:#2a1212;border:1px solid #6b2424;color:#ffb4b4;padding:10px 12px;border-radius:6px;font-size:13px}
+  .notice{background:#122a18;border:1px solid #246b38;color:#b4ffc8;padding:10px 12px;border-radius:6px;font-size:13px}
+  form{display:grid;gap:14px;margin-top:18px}
+  label{display:grid;gap:6px;font-size:13px;color:#aaa}
+  input{background:#0f0f0f;border:1px solid #333;color:#eee;padding:10px 12px;border-radius:6px;font-size:14px}
+  button{background:#eee;color:#111;border:0;border-radius:6px;padding:12px;font-size:14px;font-weight:700;cursor:pointer}
+  button:hover{background:#fff}
+  .links{display:flex;gap:14px;margin-top:20px;font-size:13px}
+  .links a{color:#88bbff;text-decoration:none}
+</style>
+</head>
+<body>
+<main class="rescue">
+  <p class="eyebrow" style="margin:0 0 10px;color:#888;font-size:11px;letter-spacing:.18em">DOMAIN RESCUE</p>
+  <h1>域名急救</h1>
+  <p>当自动配置关闭且主域名/备用域名填写错误时，站点可能无法从当前地址正常访问。请使用<strong>超级管理员密码</strong>验证身份后修复域名配置。</p>
+  <% if (error) { %><p class="error"><%= error %></p><% } %>
+  <form method="post" action="/rescue">
+    <label>超级管理员密码（不会显示用户名）
+      <input type="password" name="password" required autofocus autocomplete="current-password" placeholder="请输入超级管理员密码">
+    </label>
+    <button type="submit">验证并进入域名配置</button>
+  </form>
+  <div class="links"><a href="/login">返回登录页 →</a><a href="/">返回首页 →</a></div>
+</main>
+</body>
+</html>

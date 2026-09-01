@@ -38,6 +38,9 @@ const DEFAULT_ADMIN_MENU = [
 
 const normalizeHost = (value: string): string => String(value ?? '').trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '');
 
+/** 域名急救路径：/rescue 及其子路径在来源校验和域名重定向前放行。 */
+const isRescuePath = (pathname: string): boolean => pathname === '/rescue' || pathname.startsWith('/rescue/');
+
 /** 会话签名密钥：优先环境变量；缺失时生成随机密钥并落盘，避免硬编码默认值可被伪造会话。 */
 function resolveSessionSecret(): string {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
@@ -91,8 +94,12 @@ export async function createApp() {
   // 无 Origin 且无 Referer 的非浏览器客户端（curl/API）不受影响。
   app.use(async (req: Request, res: Response, next: NextFunction) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    // 域名急救：无论当前域名/来源如何都要允许提交，否则填错域名后无法自救。
+    if (isRescuePath(req.path)) return next();
     let siteConfig: SiteConfig | undefined;
     try { siteConfig = await context.config.get(); } catch { /* 配置不可用时仅比对请求 Host */ }
+    // 自动配置模式：任何域名都接受，不校验 Origin 是否属于配置中的域名。
+    if (siteConfig?.autoDetect) return next();
     const allowedHosts = new Set<string>([normalizeHost(req.headers.host ?? '')]);
     if (siteConfig?.primaryDomain) allowedHosts.add(normalizeHost(siteConfig.primaryDomain));
     for (const item of siteConfig?.backupDomains ?? []) allowedHosts.add(normalizeHost(item));
@@ -118,7 +125,8 @@ export async function createApp() {
   app.use(async (req: Request, res: Response, next: NextFunction) => {
     try {
       const config = await context.config.get();
-      if (config.autoDetect || !config.primaryDomain) return next();
+      // 自动配置、未配置主域名、急救路径以及静态资源不参与域名强制跳转。
+      if (config.autoDetect || !config.primaryDomain || isRescuePath(req.path) || req.path === '/favicon.ico' || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/plugins/') || req.path.startsWith('/uploads/')) return next();
       const primary = normalizeHost(config.primaryDomain);
       const backups = config.backupDomains.map(normalizeHost).filter(Boolean);
       const host = normalizeHost(req.headers.host ?? '');
@@ -149,7 +157,7 @@ export async function createApp() {
     const user = req.session.userId ? await context.users.findById(req.session.userId) : undefined;
     const config = await context.config.get();
     const adminMenu = await hooks.collect('admin:menu', [...DEFAULT_ADMIN_MENU]);
-    for (const item of plugins.adminMenus) adminMenu.push({ title: item.title, link: item.link });
+    for (const item of plugins.adminMenus) adminMenu.push({ ...item });
     const locals = await hooks.trigger('site:locals', {
       siteConfig: config,
       pluginStyleUrls: plugins.styleUrls,

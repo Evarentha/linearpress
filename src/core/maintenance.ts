@@ -139,6 +139,7 @@ export class MaintenanceManager {
     if (pathname === '/login' || pathname.startsWith('/login')) return true;
     if (pathname === '/admin' || pathname.startsWith('/admin')) return true;
     if (pathname === '/oobe' || pathname.startsWith('/oobe')) return true;
+    if (pathname === '/rescue' || pathname.startsWith('/rescue/')) return true;
     if (pathname.startsWith('/css/') || pathname.startsWith('/js/')) return true;
     if (pathname.startsWith('/plugins/') || pathname.startsWith('/uploads/') || pathname.startsWith('/media-library/')) return true;
     if (pathname === '/favicon.ico') return true;

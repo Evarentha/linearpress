@@ -40,10 +40,11 @@
 <section class="settings-panel" data-panel="domain">
   <h2>域名设置</h2>
   <form method="post" action="/admin/settings/domain" class="editor-form">
-    <label class="editor-field switch-field"><span class="switch"><input type="checkbox" name="autoDetect" <%= config.autoDetect ? 'checked' : '' %>><span class="slider"></span></span><span>自动检测开关 (autoDetect)：开启后不进行任何重定向，保持用户访问的当前域名。</span></label>
+    <label class="editor-field switch-field"><span class="switch"><input type="checkbox" name="autoDetect" <%= config.autoDetect ? 'checked' : '' %>><span class="slider"></span></span><span>自动配置模式 (autoDetect)：开启后接受任意访问域名，不做域名重定向，并自动使用当前域名拼接路径与路由。</span></label>
     <label class="editor-field">主域名 (primaryDomain)<input name="primaryDomain" value="<%= config.primaryDomain %>" placeholder="www.lp.cn"></label>
-    <div class="editor-field">备用域名 (backupDomains)<div id="domain-list"><% if (config.backupDomains.length) { config.backupDomains.forEach(domain => { %><div class="domain-row"><input name="backupDomains" value="<%= domain %>" placeholder="http://cdn.lp.cn:1234"><button type="button" class="domain-remove">[-]</button></div><% }) } else { %><div class="domain-row"><input name="backupDomains" placeholder="http://cdn.lp.cn:1234"><button type="button" class="domain-remove">[-]</button></div><% } %></div><button type="button" id="domain-add" class="button button-mini">[+] 添加备用域名</button><small>通过备用域名访问时不触发重定向；其他域名会 301 跳转到主域名。</small></div>
+    <div class="editor-field">备用域名 (backupDomains)<div id="domain-list"><% if (config.backupDomains.length) { config.backupDomains.forEach(domain => { %><div class="domain-row"><input name="backupDomains" value="<%= domain %>" placeholder="http://cdn.lp.cn:1234"><button type="button" class="domain-remove">[-]</button></div><% }) } else { %><div class="domain-row"><input name="backupDomains" placeholder="http://cdn.lp.cn:1234"><button type="button" class="domain-remove">[-]</button></div><% } %></div><button type="button" id="domain-add" class="button button-mini">[+] 添加备用域名</button><small>关闭自动配置时，通过备用域名访问不触发重定向；其他域名会 301 跳转到主域名。</small></div>
     <button class="button" type="submit">保存域名设置</button>
+    <p class="notice" style="margin-top:12px">域名填错导致无法访问？可尝试 <a href="/rescue">/rescue 域名急救</a>。</p>
   </form>
 </section>
 

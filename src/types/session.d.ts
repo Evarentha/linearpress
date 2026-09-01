@@ -7,5 +7,5 @@
 
 import 'express-session';
 declare module 'express-session' {
-  interface SessionData { userId?: number; oobeStep?: number; }
+  interface SessionData { userId?: number; oobeStep?: number; rescueVerified?: boolean; }
 }

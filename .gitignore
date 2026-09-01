@@ -4,6 +4,10 @@ data/
 .DS_Store
 .pi/
 
+# 本地构建/运行产物
+base.zip
+uploads/
+
 # 插件目录：由工作区同步/安装器写入，不纳入本体仓库（seo / minimal-theme 两个内置插件除外）
 src/plugins/*
 !src/plugins/seo/

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title><%= title %> · LinearPress</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0f0f0f;color:#eee;font-family:Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .rescue{max-width:560px;width:100%;background:#161616;border:1px solid #333;border-radius:10px;padding:32px}
+  h1{font:400 28px Georgia,serif;margin:0 0 6px}
+  p{color:#bbb;line-height:1.7;font-size:14px}
+  .notice{background:#122a18;border:1px solid #246b38;color:#b4ffc8;padding:10px 12px;border-radius:6px;font-size:13px}
+  form{display:grid;gap:16px;margin-top:18px}
+  label{display:grid;gap:6px;font-size:13px;color:#aaa}
+  input[type="text"],textarea{background:#0f0f0f;border:1px solid #333;color:#eee;padding:10px 12px;border-radius:6px;font-size:14px;font-family:inherit}
+  textarea{min-height:100px;resize:vertical}
+  .switch-row{display:flex;align-items:center;gap:10px;font-size:14px;color:#ddd}
+  .switch-row input{width:18px;height:18px;accent-color:#eee}
+  button{background:#eee;color:#111;border:0;border-radius:6px;padding:12px;font-size:14px;font-weight:700;cursor:pointer}
+  button:hover{background:#fff}
+  .links{display:flex;gap:14px;margin-top:20px;font-size:13px}
+  .links a{color:#88bbff;text-decoration:none}
+</style>
+</head>
+<body>
+<main class="rescue">
+  <p class="eyebrow" style="margin:0 0 10px;color:#888;font-size:11px;letter-spacing:.18em">DOMAIN RESCUE</p>
+  <h1>域名配置</h1>
+  <p>已通过超级管理员密码验证。此页面<strong>仅用于修复域名配置</strong>：开启自动配置后，站点会接受任意访问域名，并自动使用当前域名拼接路径与路由。</p>
+  <% if (notice === 'saved') { %><p class="notice">域名配置已保存。</p><% } %>
+  <form method="post" action="/rescue/domain">
+    <label class="switch-row"><input type="checkbox" name="autoDetect" <%= config.autoDetect ? 'checked' : '' %>>自动配置模式（任何域名均接受，不做域名重定向）</label>
+    <label>主域名 (primaryDomain)
+      <input type="text" name="primaryDomain" value="<%= config.primaryDomain %>" placeholder="www.example.com">
+    </label>
+    <label>备用域名 (backupDomains，每行一个)
+      <textarea name="backupDomains" placeholder="http://cdn.example.com:1234"><%= config.backupDomains.join('\n') %></textarea>
+    </label>
+    <button type="submit">保存域名配置</button>
+  </form>
+  <div class="links"><a href="/">返回首页 →</a><a href="/admin">进入后台 →</a></div>
+</main>
+</body>
+</html>

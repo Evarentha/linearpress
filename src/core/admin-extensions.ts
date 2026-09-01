@@ -5,7 +5,8 @@
  * Made by MoyuZJ in China with ♥
  */
 
-export interface AdminMenuEntry { title: string; link: string; icon?: string; pluginId: string; }
+export interface AdminMenuChild { title: string; link: string; icon?: string; }
+export interface AdminMenuEntry { title: string; link: string; icon?: string; pluginId: string; children?: AdminMenuChild[]; }
 export interface CustomSettingEntry { label: string; link?: string; html?: string; pluginId: string; }
 export interface PanelEntry { html: string; pluginId: string; }
 
@@ -23,8 +24,8 @@ export class AdminExtensionRegistry {
 
   setCurrentPluginId(id: string): void { this.currentPluginId = id; }
 
-  registerMenu(entry: { title: string; link: string; icon?: string }): void {
-    this.menus.push({ ...entry, pluginId: this.currentPluginId });
+  registerMenu(entry: { title: string; link: string; icon?: string; children?: AdminMenuChild[] }): void {
+    this.menus.push({ ...entry, children: entry.children?.length ? entry.children : undefined, pluginId: this.currentPluginId });
   }
 
   registerPanel(html: string): void {

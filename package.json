@@ -1,6 +1,6 @@
 {
   "name": "linearpress",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A server-rendered blogging system powered by TypeScript, Express 5, EJS and SQLite with a Cordis plugin architecture.",
   "type": "module",
   "main": "index.ts",

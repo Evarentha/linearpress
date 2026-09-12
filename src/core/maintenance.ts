@@ -1,8 +1,24 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Maintenance Mode Manager
+ *
+ * Whole-site maintenance mode with framework-independent static pages.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>MaintenanceManager</code> enters and exits maintenance mode with a
+ * reason and a progress task queue, renders static HTML for the maintenance
+ * page and the one-shot 500 error page (bypassing the template engine so a
+ * second crash cannot break the fallback), dumps fatal errors to
+ * <code>.logs</code>, suspends and restores non-whitelisted plugins, and lets
+ * administrators bypass the gate on <code>/login</code> and <code>/admin</code>.
+ *
+ * @since 2.0.1
  */
 
 import fs from 'fs-extra';

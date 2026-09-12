@@ -1,8 +1,21 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  LinearPress Architecture Overview
+
+  Overview of the LinearPress runtime architecture.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Documents the runtime stack (Node.js, TypeScript/tsx, Express 5,
+  EJS, Cordis, built-in SQLite), the split between the Cordis plugin
+  kernel and the Express web layer, the startup lifecycle, service
+  registration, the database boundary, routing, blocks and hooks,
+  dynamic unload behavior, and the protected kernel.
+  @since 2.0.1
 -->
 
 # LinearPress Architecture

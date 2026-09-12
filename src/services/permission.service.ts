@@ -1,8 +1,23 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Permission Service
+ *
+ * Permission checks and Express authentication guards.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>hasPermission()</code> resolves the user's group — super admins
+ * always pass and the <code>*</code> wildcard grants everything — while
+ * <code>requireAuth</code> redirects anonymous sessions to the login page
+ * and <code>checkPermission()</code> builds a guard that renders a 403 page
+ * when the active Cordis context denies the permission.
+ *
+ * @since 2.0.1
  */
 
 import type { RequestHandler } from 'express';

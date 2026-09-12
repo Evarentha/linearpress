@@ -1,7 +1,25 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
+ * LinearPress Plugin Service Facade
+ *
+ * Web, admin, hook and database surfaces exposed to plugins.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Defines the <code>LinearPressWeb</code>, <code>LinearPressAdmin</code> and
+ * <code>LinearPressServices</code> contract surfaces handed to plugins.
+ * <code>provideLinearPressServices()</code> injects them into the Cordis
+ * context without overwriting existing providers, and
+ * <code>createExpressWebAdapter()</code> bridges route, middleware, view and
+ * static-directory registration onto the <code>RouterCollector</code> while
+ * attributing each registration to the current plugin id.
+ *
+ * @since 2.0.1
  */
 
 import type { Context } from 'cordis';

@@ -1,8 +1,25 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Core Service Registration
+ *
+ * Registers the built-in LinearPress services onto the Cordis context.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <p>Wraps the data-layer modules into hook-integrated services — auth,
+ * users, posts, comments, groups, permissions, plugins, config and a raw
+ * database facade with transaction helpers — and provides them to the
+ * context so plugins can consume or replace them.</p>
+ * <p>Mutating operations fire the corresponding before/after hooks; plugin
+ * install and uninstall operations report progress through maintenance
+ * tasks.</p>
+ *
+ * @since 2.0.1
  */
 
 import type { Context } from 'cordis';

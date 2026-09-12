@@ -1,8 +1,20 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  LinearPress Hook Reference
+
+  Reference for the LinearPress HookSystem.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Documents the payload-waterfall HookSystem and its mapping to
+  Cordis events, plus the catalog of existing hooks across
+  authentication, users, posts, comments, groups, plugins and
+  rendering, with payload and timing for each.
+  @since 2.0.1
 -->
 
 # Hook Reference

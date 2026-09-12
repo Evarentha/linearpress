@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Route Collector
+ *
+ * Plugin-attributed route collection deferred until app assembly.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>RouterCollector</code> gathers (method, path, handler, pluginId)
+ * registrations instead of binding them to Express immediately, exposes a
+ * read-only snapshot so plugins can apply the first-registered-wins rule,
+ * and applies the collected routes to the app in reverse registration order.
+ *
+ * @since 2.0.1
  */
 
 import type { Express, RequestHandler } from 'express';

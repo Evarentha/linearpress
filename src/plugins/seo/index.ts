@@ -1,9 +1,21 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
- */
+  Built-in SEO Plugin
+
+  Cordis plugin providing basic SEO features.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+*/
+/**
+  Cordis plugin entry for the built-in SEO plugin. Creates the
+  seo_meta table, normalizes post titles and slugs on the
+  post:beforeSave hook, and registers the /admin/seo status page
+  with its admin menu entry.
+  @since 2.0.1
+*/
 
 import { Context } from 'cordis';
 import { checkPermission } from '../../services/permission.service.js';

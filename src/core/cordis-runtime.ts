@@ -1,7 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
+ * LinearPress Cordis Runtime Wrapper
+ *
+ * Self-contained Cordis runtime for tooling and smoke tests.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>CordisRuntime</code> runs callbacks inside a dedicated fiber per
+ * plugin id, provides services into the runtime context (without overwriting
+ * existing providers), and disposes each plugin's fibers in reverse
+ * registration order.
+ *
+ * @since 2.0.1
  */
 
 import { Context, type Fiber } from 'cordis';

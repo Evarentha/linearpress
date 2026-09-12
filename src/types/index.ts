@@ -1,8 +1,23 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Domain Types
+ *
+ * Core domain models and site configuration types.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Exports <code>SiteConfig</code> (including legacy compatibility fields),
+ * the <code>User</code>, <code>Group</code>, <code>Post</code>,
+ * <code>Comment</code> and <code>Plugin</code> entity interfaces, the post
+ * and comment status unions, and the <code>Block</code> discriminated union
+ * describing post content.
+ *
+ * @since 2.0.1
  */
 
 export type FooterCopyrightPreset = 'powered-by' | 'running-on' | 'none';

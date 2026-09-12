@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress User Data Service
+ *
+ * User accounts, group membership and authentication.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Manages bcrypt-hashed user records: super-admin creation guarded by the
+ * OOBE state inside a transaction, self-service registration into the
+ * subscriber group, group assignment rules that protect the single super
+ * admin, and username/password authentication.
+ *
+ * @since 2.0.1
  */
 
 import bcrypt from 'bcryptjs';

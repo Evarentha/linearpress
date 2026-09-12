@@ -1,8 +1,20 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  User Management Page
+
+  Admin page listing users and their permission groups.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Renders the user management table with username, email and group
+  for each user. Regular users can be reassigned to a group without
+  wildcard permissions; the unique super admin account is marked and
+  cannot be reassigned.
+  @since 2.0.1
 -->
 
 <div class="page-head"><h1>用户</h1></div><table><thead><tr><th>用户名</th><th>邮箱</th><th>权限组</th><th>操作</th></tr></thead><tbody><% users.forEach(user => { %><tr><td><%= user.username %><% if (user.is_super_admin) { %> <strong>SUPER ADMIN</strong><% } %></td><td><%= user.email || '-' %></td><td><%= user.group_name %></td><td><% if (user.is_super_admin) { %><span>唯一超级管理员</span><% } else { %><form method="post" action="/admin/users/<%= user.id %>/group"><select name="group_id"><% groups.filter(group => !group.permissions.includes('*')).forEach(group => { %><option value="<%= group.id %>" <%= group.id === user.group_id ? 'selected' : '' %>><%= group.name %></option><% }) %></select><button>更新</button></form><% } %></td></tr><% }) %></tbody></table>

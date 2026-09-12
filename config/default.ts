@@ -1,8 +1,21 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Default Site Configuration
+ *
+ * Baseline site configuration shipped with LinearPress.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Exports the default <code>SiteConfig</code> applied before any persisted
+ * settings exist: site identity and description, datetime locale preferences,
+ * domain auto-detection, permalink pattern, and footer/ICP fields.
+ *
+ * @since 2.0.1
  */
 
 import type { SiteConfig } from '../src/types/index.js';

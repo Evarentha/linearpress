@@ -1,8 +1,24 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress SQLite Infrastructure Database
+ *
+ * Synchronous SQLite infrastructure database for LinearPress.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Opens the SQLite database (WAL journal mode, foreign keys on) from
+ * <code>DB_PATH</code> or <code>data/blog.db</code>, exports typed statement
+ * and database interfaces plus the shared <code>db</code> handle, purges
+ * expired sessions, and runs idempotent schema migrations — including the
+ * system groups seed, plugin column backfills and single-super-admin
+ * enforcement.
+ *
+ * @since 2.0.1
  */
 
 import { DatabaseSync } from 'node:sqlite';

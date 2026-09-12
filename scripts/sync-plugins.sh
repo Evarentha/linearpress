@@ -1,13 +1,21 @@
 #!/usr/bin/env sh
 #
-# Author: MoyuZJ
-# Team: LinearTeam
-# Contact: linearteam@foxmail.com
-# Made by MoyuZJ in China with ♥
+# LinearPress Plugin Workspace Sync Script
 #
-# 将工作区 Plugins/<id> 开发仓库同步到运行目录 src/plugins/<id>。
-# 排除 .git、.gitignore 与用户上传内容（ac-files）。
-# 用法：npm run sync  或  sh scripts/sync-plugins.sh [plugin-id ...]
+# Syncs development plugin repositories into the runtime plugin directory.
+#
+# Authors:
+# MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+#
+# Copyright (C) 2026 Evarentha
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Syncs the workspace Plugins/<id> development repositories into the runtime
+# directory src/plugins/<id>, excluding .git, .gitignore and user-uploaded
+# content (ac-files).
+# Usage: npm run sync  or  sh scripts/sync-plugins.sh [plugin-id ...]
+#
+# @since 2.0.1
 
 set -e
 cd "$(dirname "$0")/.."

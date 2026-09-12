@@ -1,8 +1,20 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  LinearPress Default Web Layout
+
+  HTML shell shared by public-facing pages.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Default layout for the public site. Renders the site header with
+  navigation and login/logout state, custom CSS, plugin stylesheets,
+  the page body, and the footer with copyright presets, ICP filing
+  info and custom footer HTML, plus plugin scripts.
+  @since 2.0.1
 -->
 
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%= title %> · <%= siteConfig.siteName || siteConfig.title || 'LinearPress' %></title><meta name="description" content="<%= siteConfig.siteDescription || siteConfig.description %>"><% if (siteConfig.customCss) { %><style><%- siteConfig.customCss %></style><% } %><link rel="stylesheet" href="/css/style.css"><% for (const css of pluginStyleUrls) { %><link rel="stylesheet" href="<%= css %>"><% } %><script src="https://cdn.tailwindcss.com"></script></head><body><header class="site-header"><a class="brand" href="/"><%= siteConfig.siteName || 'LINEARPRESS' %></a><nav><a href="/">首页</a><% if (currentUser) { %><a href="/admin">后台</a><form action="/logout" method="post"><button>退出</button></form><% } else { %><a href="/login">登录</a><% } %></nav></header><main class="shell"><%- body %></main><footer class="site-footer"><% if (siteConfig.footerCopyright !== 'none') { %><p class="footer-copy"><%= siteConfig.footerCopyright === 'running-on' ? ('本站正在运行基于 CordisJS 的 LinearPress 版本 ' + LINEARPRESS_VERSION + '。') : ('由 LinearPress 强力驱动，基于 CordisJS。正在运行的版本为：' + LINEARPRESS_VERSION + '。') %></p><% } %><% if (siteConfig.icpNumber) { %><p class="footer-icp"><%= siteConfig.icpProvince ? siteConfig.icpProvince : '' %>ICP备<%= siteConfig.icpNumber %>号<% if (siteConfig.policeNumber) { %> | 国公网安备第<%= siteConfig.policeNumber %>号<% } %></p><% } %><% if (siteConfig.footerHtml) { %><div class="footer-html"><%- siteConfig.footerHtml %></div><% } %><p class="footer-meta">TYPE-SAFE PUBLISHING / <%= new Date().getFullYear() %></p></footer><% for (const script of pluginScriptUrls) { %><script src="<%= script %>"></script><% } %></body></html>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title><%= title %> · <%= siteConfig.siteName || siteConfig.title || 'LinearPress' %></title><meta name="description" content="<%= siteConfig.siteDescription || siteConfig.description %>"><% if (siteConfig.customCss) { %><style><%- siteConfig.customCss %></style><% } %><link rel="stylesheet" href="/css/style.css"><% for (const css of pluginStyleUrls) { %><link rel="stylesheet" href="<%= css %>"><% } %></head><body><header class="site-header"><a class="brand" href="/"><%= siteConfig.siteName || 'LINEARPRESS' %></a><nav><a href="/">首页</a><% if (currentUser) { %><a href="/admin">后台</a><form action="/logout" method="post"><button>退出</button></form><% } else { %><a href="/login">登录</a><% } %></nav></header><main class="shell"><%- body %></main><footer class="site-footer"><% if (siteConfig.footerCopyright !== 'none') { %><p class="footer-copy"><%= siteConfig.footerCopyright === 'running-on' ? ('本站正在运行基于 CordisJS 的 LinearPress 版本 ' + LINEARPRESS_VERSION + '。') : ('由 LinearPress 强力驱动，基于 CordisJS。正在运行的版本为：' + LINEARPRESS_VERSION + '。') %></p><% } %><% if (siteConfig.icpNumber) { %><p class="footer-icp"><%= siteConfig.icpProvince ? siteConfig.icpProvince : '' %>ICP备<%= siteConfig.icpNumber %>号<% if (siteConfig.policeNumber) { %> | 国公网安备第<%= siteConfig.policeNumber %>号<% } %></p><% } %><% if (siteConfig.footerHtml) { %><div class="footer-html"><%- siteConfig.footerHtml %></div><% } %><p class="footer-meta">TYPE-SAFE PUBLISHING / <%= new Date().getFullYear() %></p></footer><% for (const script of pluginScriptUrls) { %><script src="<%= script %>"></script><% } %></body></html>

@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Admin Extension Registry
+ *
+ * Registry for plugin-contributed admin console extensions.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Defines the entry shapes for admin menus, right-side detail panels and
+ * per-plugin custom setting entries, plus the <code>AdminExtensionRegistry</code>
+ * that collects them, tags each entry with the registering plugin id, and
+ * drops all entries when a plugin is removed.
+ *
+ * @since 2.0.1
  */
 
 export interface AdminMenuChild { title: string; link: string; icon?: string; }

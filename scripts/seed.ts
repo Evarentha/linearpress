@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Sample Content Seeder
+ *
+ * Seeds a welcome post once the site has been initialized.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Runs migrations first, then requires an existing super administrator —
+ * skipping with a notice when OOBE has not been completed — and inserts a
+ * published welcome post when the <code>welcome</code> slug is absent.
+ * No accounts are created.
+ *
+ * @since 2.0.1
  */
 
 import { db, runMigrations } from '../src/core/database.js';

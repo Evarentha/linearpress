@@ -1,9 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
- */
+  Built-in Block Editor Frontend
+
+  Frontend logic for the admin block editor.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+*/
+/**
+  Implements the block-based post editor: registers the built-in block
+  types (paragraph, heading, blockquote, image, custom HTML), renders
+  the toolbar and per-block field controls, and keeps the hidden
+  #content_json textarea in sync with the block state. Exposes
+  window.LinearPressEditor so plugins can register custom blocks.
+  @since 2.0.1
+*/
 
 (() => {
   const root = document.querySelector('#editor');

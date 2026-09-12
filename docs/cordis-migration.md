@@ -1,8 +1,21 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Cordis Migration Guide
+
+  Notes on the completed Cordis migration.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Records the completed migration to Cordis-native plugins: the new
+  plugin entry signatures, services provided through the Cordis
+  Context, effect-based resource cleanup, the removed legacy
+  PluginEntry / ActivateContext / PrebootContext / ServiceContainer /
+  TOKENS APIs, and remaining notes on route mounting and restarts.
+  @since 2.0.1
 -->
 
 # Cordis Migration

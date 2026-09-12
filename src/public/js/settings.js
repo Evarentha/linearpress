@@ -1,9 +1,21 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
- */
+  Settings Tabs Frontend
+
+  Frontend logic for the site settings page.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+*/
+/**
+  Wires the tab navigation that switches between settings panels,
+  and manages the backup-domain list on the domain tab: adding new
+  domain rows and removing existing ones before the form is
+  submitted.
+  @since 2.0.1
+*/
 
 (() => {
   const tabs = document.querySelectorAll('.settings-tab');

@@ -1,8 +1,21 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Plugin Management Console Page
+
+  Admin page for installing plugins and managing their load order.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Renders the plugin management console. Provides forms to install
+  plugins from npm or from uploaded ZIP files (with optional batch
+  install), lists installed plugins with settings, enable/disable
+  and uninstall actions, and supports dragging list entries to
+  reorder plugin load priority.
+  @since 2.0.1
 -->
 
 <div class="page-head"><h1>插件</h1><p class="eyebrow">拖动条目调整加载顺序</p></div>
@@ -19,6 +32,6 @@
   </form>
   <p id="install-status" class="notice" hidden></p>
 </section>
-<ol class="plugin-list" id="plugin-list"><% plugins.forEach(plugin => { %><li draggable="true" data-plugin-id="<%= plugin.id %>"><span class="drag-handle">::</span><div class="plugin-icon"><% if (plugin.icon) { %><%- plugin.icon %><% } else { %><%= (plugin.name || plugin.id)[0].toUpperCase() %><% } %></div><div class="plugin-info"><strong><%= plugin.name %></strong><small><%= plugin.id %> · v<%= plugin.version %><% if (plugin.description) { %> · <%= plugin.description %><% } %></small><small>order <%= plugin.load_order %></small></div><span class="plugin-status"><%= plugin.enabled ? '启用' : '停用' %></span><div class="plugin-actions"><% customSettingsFor(plugin.id).forEach(entry => { %><a class="button button-mini" href="<%= entry.link || ('/admin/plugins/' + plugin.id + '/settings') %>"><%= entry.label %></a><% }) %><a class="button button-mini" href="/admin/plugins/<%= plugin.id %>/settings">设置</a><form method="post" action="/admin/plugins/<%= plugin.id %>/toggle"><button class="button button-mini"><%= plugin.enabled ? '停用' : '启用' %></button></form><% if (!builtinPlugins.includes(plugin.id)) { %><form method="post" action="/admin/plugins/<%= plugin.id %>/uninstall" onsubmit="return confirm('删除将移除插件目录及其数据，继续吗？')"><button class="button button-mini danger">删除</button></form><% } %></div></li><% }) %></ol><p id="sort-status" class="notice" hidden>顺序已保存。</p>
+<ol class="plugin-list" id="plugin-list"><% plugins.forEach(plugin => { %><li draggable="true" data-plugin-id="<%= plugin.id %>"><span class="drag-handle">::</span><div class="plugin-icon"><% if (plugin.icon) { %><%= plugin.icon %><% } else { %><%= (plugin.name || plugin.id)[0].toUpperCase() %><% } %></div><div class="plugin-info"><strong><%= plugin.name %></strong><small><%= plugin.id %> · v<%= plugin.version %><% if (plugin.description) { %> · <%= plugin.description %><% } %></small><small>order <%= plugin.load_order %></small></div><span class="plugin-status"><%= plugin.enabled ? '启用' : '停用' %></span><div class="plugin-actions"><% customSettingsFor(plugin.id).forEach(entry => { %><a class="button button-mini" href="<%= entry.link || ('/admin/plugins/' + plugin.id + '/settings') %>"><%= entry.label %></a><% }) %><a class="button button-mini" href="/admin/plugins/<%= plugin.id %>/settings">设置</a><form method="post" action="/admin/plugins/<%= plugin.id %>/toggle"><button class="button button-mini"><%= plugin.enabled ? '停用' : '启用' %></button></form><% if (!builtinPlugins.includes(plugin.id)) { %><form method="post" action="/admin/plugins/<%= plugin.id %>/uninstall" onsubmit="return confirm('删除将移除插件目录及其数据，继续吗？')"><button class="button button-mini danger">删除</button></form><% } %></div></li><% }) %></ol><p id="sort-status" class="notice" hidden>顺序已保存。</p>
 <script src="/js/plugin-sort.js"></script>
 <script src="/js/plugin-install.js"></script>

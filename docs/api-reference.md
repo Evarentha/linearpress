@@ -1,8 +1,21 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  LinearPress Service API Reference
+
+  Reference for services exposed to plugins.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Documents the Cordis plugin context and the core services available
+  to plugins (database, auth, users, posts, comments, groups,
+  permissions, plugins, config), service replacement via provide and
+  replaceService, effects, permission registration, admin extensions
+  (menus, panels, custom settings), and block injection.
+  @since 2.0.1
 -->
 
 # Service API Reference

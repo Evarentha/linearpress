@@ -1,8 +1,20 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Post Editor Page
+
+  Admin page for creating and editing posts.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Renders the post editor form: title, permalink slug with live
+  preview, publish status, and the block editor mount point whose
+  serialized block JSON is submitted through a hidden textarea.
+  Loads the editor and slug generator scripts.
+  @since 2.0.1
 -->
 
-<div class="post-editor-shell"><div class="page-head"><h1><%= post ? '编辑文章' : '新建文章' %></h1></div><form class="editor-form" method="post" action="/admin/posts/save"><input type="hidden" name="id" value="<%= post?.id ?? '' %>"><label class="editor-field">标题<input id="post-title" name="title" required value="<%= post?.title ?? '' %>" placeholder="标题"></label><label class="editor-field">固定链接标识<input id="post-slug" name="slug" value="<%= post?.slug ?? '' %>" data-existing="<%= post ? 'true' : 'false' %>" placeholder="根据标题自动生成"><small>/post/<span id="slug-preview"><%= post?.slug ?? '' %></span></small></label><label class="editor-field">状态<select name="status"><option value="draft" <%= post?.status === 'draft' ? 'selected' : '' %>>草稿</option><option value="published" <%= post?.status === 'published' ? 'selected' : '' %>>发布</option></select></label><div id="editor" data-content="<%- JSON.stringify(post?.content_json ?? []).replace(/</g, '\\u003c').replace(/'/g, '&#39;') %>"></div><textarea id="content_json" name="content_json" hidden></textarea><button class="button editor-submit" type="submit">保存文章</button></form></div><script src="/js/editor.js?v=2.1.0"></script><script src="/js/post-slug.js"></script>
+<div class="post-editor-shell"><div class="page-head"><h1><%= post ? '编辑文章' : '新建文章' %></h1></div><form class="editor-form" method="post" action="/admin/posts/save"><input type="hidden" name="id" value="<%= post?.id ?? '' %>"><label class="editor-field">标题<input id="post-title" name="title" required value="<%= post?.title ?? '' %>" placeholder="标题"></label><label class="editor-field">固定链接标识<input id="post-slug" name="slug" value="<%= post?.slug ?? '' %>" data-existing="<%= post ? 'true' : 'false' %>" placeholder="根据标题自动生成"><small>/post/<span id="slug-preview"><%= post?.slug ?? '' %></span></small></label><label class="editor-field">状态<select name="status"><option value="draft" <%= post?.status === 'draft' ? 'selected' : '' %>>草稿</option><option value="published" <%= post?.status === 'published' ? 'selected' : '' %>>发布</option></select></label><div id="editor" data-content="<%- JSON.stringify(post?.content_json ?? []).replace(/&/g, '&amp;').replace(/</g, '\\u003c').replace(/"/g, '&quot;').replace(/'/g, '&#39;') %>"></div><textarea id="content_json" name="content_json" hidden></textarea><button class="button editor-submit" type="submit">保存文章</button></form></div><script src="/js/editor.js?v=2.1.0"></script><script src="/js/post-slug.js"></script>

@@ -1,8 +1,23 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Group and Permission Service
+ *
+ * Permission groups and the permission definition registry.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Maintains the built-in and plugin-registered permission definitions
+ * (identifier plus display label) and provides CRUD for permission groups
+ * backed by the <code>groups</code> table: system groups are protected from
+ * modification and deletion, and deleting a group reassigns its users to
+ * the subscriber group.
+ *
+ * @since 2.0.1
  */
 
 import { db } from '../core/database.js';

@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Plugin Contracts
+ *
+ * Plugin manifest, entry and runtime support types.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Defines <code>PluginManifest</code> (metadata, lifecycle flags and
+ * resource declarations), the generic block and renderer types, the plugin
+ * logger, the <code>CordisPlugin</code> phase functions and
+ * <code>PluginEntry</code> export shape, and <code>RegisteredRoute</code>.
+ *
+ * @since 2.0.1
  */
 
 import type { Context } from 'cordis';

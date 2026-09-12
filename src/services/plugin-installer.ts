@@ -1,8 +1,25 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Plugin Installer
+ *
+ * Validated plugin installation from npm packages or ZIP archives.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Parses npm specs, fetches the target tarball from the registry, and
+ * extracts <code>.tgz</code>/<code>.zip</code> payloads into a temp staging
+ * directory with zip-slip protection. The plugin root is located, its
+ * manifest and entry-file lifecycle exports are validated statically
+ * (plugin code is never executed), and only then is the directory copied
+ * into <code>src/plugins</code> and registered in the infrastructure
+ * database; any validation failure throws before anything is installed.
+ *
+ * @since 2.0.1
  */
 
 import fs from 'fs-extra';

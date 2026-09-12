@@ -1,8 +1,25 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Core Route Table
+ *
+ * Registers every core HTTP route of LinearPress onto the Express router.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <p>Registers all built-in routes: the out-of-box experience (OOBE) wizard,
+ * the domain-rescue flow, public post reading and comment submission with
+ * basic IP rate limiting, authentication, and the admin console covering
+ * posts, comments, users, groups, site settings, maintenance mode and plugin
+ * management.</p>
+ * <p>Services are resolved from the Cordis context per request, so plugins
+ * can replace them after bootstrap and the changes apply to core routes.</p>
+ *
+ * @since 2.0.1
  */
 
 import type { Context } from 'cordis';

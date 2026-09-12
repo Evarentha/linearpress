@@ -1,8 +1,19 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Registration Page
+
+  Account creation form for new writers.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Renders the registration screen with username, email and password
+  fields (minimum 8 characters), an optional error message, and a
+  link back to the login page.
+  @since 2.0.1
 -->
 
 <section class="auth"><p class="eyebrow">NEW WRITER</p><h1>注册</h1><% if (error) { %><p class="error"><%= error %></p><% } %><form method="post" action="/register"><input name="username" required placeholder="用户名"><input name="email" type="email" placeholder="邮箱"><input name="password" required type="password" placeholder="密码（至少 8 位）"><button class="button" type="submit">创建账号</button></form><a href="/login">已有账号 →</a></section>

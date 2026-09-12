@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Post Data Service
+ *
+ * Post persistence, slug generation and HTML render caching.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * CRUD and listing queries over the <code>posts</code> table with block
+ * content hydrated from JSON, Unicode-aware slug generation with
+ * uniqueness suffixes, HTML cache rendering through the block registry on
+ * save, and per-post view counting.
+ *
+ * @since 2.0.1
  */
 
 import { renderBlocks } from '../core/block-registry.js';

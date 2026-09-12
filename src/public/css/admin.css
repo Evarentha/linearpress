@@ -1,9 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
- */
+  Admin Console Stylesheet
+
+  Styles for the admin console interface.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+*/
+/*
+  Stylesheet for admin pages: the fixed sidebar navigation with
+  collapsible groups and mobile burger drawer, stats grid, data
+  tables, buttons and notices, the block editor, group and
+  permission panels, the plugin list with drag handles and install
+  forms, settings tabs and panels, and responsive breakpoints.
+  @since 2.0.1
+*/
 
 *{box-sizing:border-box}html,body{min-height:100%}body{margin:0;background:#f5f5f3;color:#1a1a1a;font-family:Arial,sans-serif}
 .admin-side{position:fixed;inset:0 auto 0 0;width:230px;background:#1a1a1a;color:#fff;padding:28px 22px;overflow-y:auto}

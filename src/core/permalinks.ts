@@ -1,8 +1,23 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Permalink Engine
+ *
+ * SEO-friendly permalink patterns and route registration.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>postUrl()</code> builds reading-page URLs in the configured format,
+ * <code>resolvePostParams()</code> maps generic route parameters back to a
+ * post id or slug, and the two registration helpers register segment-count
+ * generic read/comment patterns (plus the legacy <code>/post/:slug</code>
+ * alias), so switching the permalink format takes effect without a restart.
+ *
+ * @since 2.0.1
  */
 
 import type { RequestHandler } from 'express';

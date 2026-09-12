@@ -1,8 +1,19 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Comment Moderation Page
+
+  Admin page listing comments for approval or deletion.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Renders the comment moderation table of the admin console. Each row
+  shows the commented post title, the comment content and its status,
+  with inline actions to approve or delete the comment.
+  @since 2.0.1
 -->
 
 <div class="page-head"><h1>评论审核</h1></div><table><thead><tr><th>文章</th><th>评论</th><th>状态</th><th>操作</th></tr></thead><tbody><% comments.forEach(comment => { %><tr><td><%= comment.post_title %></td><td><%= comment.content %></td><td><%= comment.status %></td><td><form class="inline" method="post" action="/admin/comments/<%= comment.id %>/status"><input type="hidden" name="status" value="approved"><button>通过</button></form><form class="inline" method="post" action="/admin/comments/<%= comment.id %>/delete"><button>删除</button></form></td></tr><% }) %></tbody></table>

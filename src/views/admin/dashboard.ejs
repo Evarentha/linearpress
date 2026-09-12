@@ -1,8 +1,18 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  Admin Dashboard Page
+
+  Admin console home showing site statistics.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Renders the admin dashboard, the entry screen of the control console.
+  Displays counters for posts, comments, pending comments and users.
+  @since 2.0.1
 -->
 
 <section class="page-head"><p class="eyebrow">LINEARPRESS / ADMIN</p><h1>控制台</h1></section><div class="stats"><div><b><%= counts.posts %></b><span>文章</span></div><div><b><%= counts.comments %></b><span>评论</span></div><div><b><%= counts.pending %></b><span>待审核</span></div><div><b><%= counts.users %></b><span>用户</span></div></div>

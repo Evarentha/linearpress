@@ -1,8 +1,27 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Site Configuration Service
+ *
+ * Persisted site configuration with an in-process cache.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <p>Persists site configuration in the <code>settings</code> table: stored
+ * values overlay the defaults from <code>config/default.ts</code>, missing
+ * fields fall back to the defaults, and corrupt stored values fall back to
+ * the defaults rather than crash the site. OOBE completion is tracked the
+ * same way.</p>
+ * <p>Configuration is read in several stages of every request (domain
+ * redirection, the OOBE gate, locals injection), so it is cached in-process
+ * and invalidated only on write, avoiding repeated SQLite queries and JSON
+ * parsing per request.</p>
+ *
+ * @since 2.0.1
  */
 
 import { db } from '../core/database.js';
@@ -12,10 +31,6 @@ import type { SiteConfig } from '../types/index.js';
 const SITE_KEY = 'site';
 const OOBE_KEY = 'oobeCompleted';
 
-/**
- * 站点配置进程内缓存：配置读取发生在每个请求的多个环节（域名重定向/OOBE 门禁/locals 注入），
- * 缓存后仅在写入时失效，避免每次请求重复 SQLite 查询与 JSON.parse。
- */
 let configCache: SiteConfig | undefined;
 let oobeCache: boolean | undefined;
 const invalidateConfigCache = (): void => { configCache = undefined; oobeCache = undefined; };

@@ -1,8 +1,21 @@
 <!--
-  Author: MoyuZJ
-  Team: LinearTeam
-  Contact: linearteam@foxmail.com
-  Made by MoyuZJ in China with ♥
+  LinearPress Plugin Development Guide
+
+  Guide for writing LinearPress plugins.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+<!--
+  Explains the Cordis-based plugin runtime model, plugin entry
+  signatures (default, preboot, bootstrap, activate), the plugin
+  manifest, context services and service replacement, effects for
+  resource cleanup, the web boundary, trusted-code assumptions, and
+  disable/uninstall behavior.
+  @since 2.0.1
 -->
 
 # LinearPress Plugin Development

@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Date and Time Formatting
+ *
+ * Site-configurable date and time formatting helpers.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Exposes the date/time format option tables used by site settings, resolves
+ * the reference "now" from the server clock or a configured ISO 8601 base
+ * time, and formats dates (Chinese and English styles) combined with 12- or
+ * 24-hour times according to the site configuration.
+ *
+ * @since 2.0.1
  */
 
 import type { SiteConfig, TimeFormat } from '../types/index.js';

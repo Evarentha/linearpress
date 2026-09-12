@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Block Registry
+ *
+ * Central registry mapping content block types to HTML renderers.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Plugins register renderers per block type and unregister them on teardown;
+ * <code>renderBlocks()</code> renders a post's block list to HTML, skipping
+ * unknown types. Built-in block types (paragraph, heading, blockquote, image,
+ * custom-html) are registered here with HTML-escaped content.
+ *
+ * @since 2.0.1
  */
 
 import type { Block } from '../types/index.js';

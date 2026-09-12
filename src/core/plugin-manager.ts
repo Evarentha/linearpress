@@ -1,8 +1,26 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Plugin Manager
+ *
+ * Discovery, lifecycle and registry management for LinearPress plugins.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <p><code>PluginManager</code> discovers plugins under <code>src/plugins</code>
+ * (manifest id must match the directory), imports and validates their entries,
+ * and runs the preboot, bootstrap and activate phases inside per-plugin Cordis
+ * fibers with plugin-scoped router, hook and admin registries.</p>
+ * <p>It syncs the plugin registry into the infrastructure database, collects
+ * manifest-declared views, static directories, styles and scripts, and
+ * implements enable/load-order updates, uninstall with full teardown, and
+ * reverse-order deactivation.</p>
+ *
+ * @since 2.0.1
  */
 
 import type { Context } from 'cordis';

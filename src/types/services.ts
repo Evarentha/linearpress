@@ -1,8 +1,24 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Service Contracts
+ *
+ * Context-provided service interfaces shared by core and plugins.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * The <code>MaybePromise</code>-based contracts provided through the Cordis
+ * context: <code>DatabaseService</code> with transaction helpers,
+ * <code>AuthService</code>, <code>UserService</code>, <code>PostService</code>,
+ * <code>CommentService</code>, <code>GroupService</code>,
+ * <code>PermissionService</code>, <code>PluginService</code>,
+ * <code>ConfigService</code> and the session store factory.
+ *
+ * @since 2.0.1
  */
 
 import type session from 'express-session';

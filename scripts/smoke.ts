@@ -1,8 +1,24 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Smoke Test Suite
+ *
+ * End-to-end smoke tests against a throwaway SQLite database.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <p>First exercises <code>CordisRuntime</code> in isolation: service
+ * provisioning and effect disposal on plugin teardown.</p>
+ * <p>Then boots <code>createApp()</code> on an ephemeral database and drives
+ * the full HTTP flow — the OOBE wizard, admin access, home rendering with
+ * plugin assets, Unicode slug generation with duplicate suffixing, and post
+ * publishing and reading — removing all database files afterwards.</p>
+ *
+ * @since 2.0.1
  */
 
 import assert from 'node:assert/strict';

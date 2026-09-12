@@ -1,8 +1,23 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Hook System
+ *
+ * Priority-ordered, plugin-scoped hook dispatch.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>HookSystem</code> registers handlers per hook name with a priority
+ * and an owning plugin id, drops them on plugin teardown, and chains async
+ * handlers through <code>trigger()</code> so each handler can transform the
+ * payload; <code>collect()</code> is the gather-style alias. Hooks with no
+ * handlers return the payload directly on a zero-cost fast path.
+ *
+ * @since 2.0.1
  */
 
 import type { HookName, HookPayloadMap } from '../types/hooks.js';

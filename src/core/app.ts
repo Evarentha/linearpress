@@ -1,8 +1,26 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Application Bootstrap
+ *
+ * Bootstraps the LinearPress Express application.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <p><code>createApp()</code> wires the Express pipeline: SQLite-backed
+ * sessions (signing secret from the environment when present, else a random
+ * key generated and persisted on first boot — never a forgeable hard-coded
+ * default), CSRF origin checking, maintenance mode, domain redirection and
+ * the OOBE gate, then core routes, plugin activation, static assets, view
+ * locals and the fatal-error handler.</p>
+ * <p><code>start()</code> listens, sweeps expired sessions hourly, and
+ * funnels fatal errors into maintenance mode.</p>
+ *
+ * @since 2.0.1
  */
 
 import express, { type NextFunction, type Request, type Response } from 'express';
@@ -41,7 +59,6 @@ const normalizeHost = (value: string): string => String(value ?? '').trim().repl
 /** 域名急救路径：/rescue 及其子路径在来源校验和域名重定向前放行。 */
 const isRescuePath = (pathname: string): boolean => pathname === '/rescue' || pathname.startsWith('/rescue/');
 
-/** 会话签名密钥：优先环境变量；缺失时生成随机密钥并落盘，避免硬编码默认值可被伪造会话。 */
 function resolveSessionSecret(): string {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
   const secretFile = path.join(process.cwd(), 'data', 'session-secret.json');
@@ -98,11 +115,14 @@ export async function createApp() {
     if (isRescuePath(req.path)) return next();
     let siteConfig: SiteConfig | undefined;
     try { siteConfig = await context.config.get(); } catch { /* 配置不可用时仅比对请求 Host */ }
-    // 自动配置模式：任何域名都接受，不校验 Origin 是否属于配置中的域名。
-    if (siteConfig?.autoDetect) return next();
+    // 自动配置模式：接受任意访问域名（不做配置域名匹配），
+    // 但 Origin/Referer 仍必须与本次请求的 Host 同源，防止自动配置下跨站表单提交绕过校验。
+    const autoDetect = siteConfig?.autoDetect === true;
     const allowedHosts = new Set<string>([normalizeHost(req.headers.host ?? '')]);
-    if (siteConfig?.primaryDomain) allowedHosts.add(normalizeHost(siteConfig.primaryDomain));
-    for (const item of siteConfig?.backupDomains ?? []) allowedHosts.add(normalizeHost(item));
+    if (!autoDetect) {
+      if (siteConfig?.primaryDomain) allowedHosts.add(normalizeHost(siteConfig.primaryDomain));
+      for (const item of siteConfig?.backupDomains ?? []) allowedHosts.add(normalizeHost(item));
+    }
     allowedHosts.delete('');
     const origin = req.headers.origin;
     const referer = req.headers.referer;

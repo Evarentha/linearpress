@@ -1,8 +1,23 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress SQLite Session Store
+ *
+ * express-session store backed by the infrastructure SQLite database.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * <code>SQLiteSessionStore</code> persists session data in the
+ * <code>sessions</code> table, implementing <code>get</code>,
+ * <code>set</code>, <code>destroy</code> and <code>touch</code> with expiry
+ * timestamps taken from the session cookie (defaulting to one day) and
+ * expired rows simply reported as missing.
+ *
+ * @since 2.0.1
  */
 
 import session from 'express-session';

@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Hook Contracts
+ *
+ * Hook names and payload types for the plugin hook system.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Defines <code>HookPayloadMap</code> — the before/after payload shapes for
+ * auth, post, comment, user, group, plugin, admin-menu and site hooks —
+ * <code>HookName</code>, and the draft interfaces carried by the
+ * object-creation hooks.
+ *
+ * @since 2.0.1
  */
 
 import type { Comment, CommentStatus, Group, Post, SiteConfig, User } from './index.js';

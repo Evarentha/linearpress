@@ -1,9 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
- */
+  Plugin Install Frontend
+
+  Frontend handlers for the plugin install forms.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+*/
+/**
+  Drives the install forms on the plugins page: validates and submits
+  npm package specs to the install API, uploads selected ZIP files
+  (one by one or in batch mode) to the install endpoint, reports
+  per-file progress and errors, and offers an automatic project
+  restart once plugins are installed.
+  @since 2.0.1
+*/
 
 (function () {
   'use strict';

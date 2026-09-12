@@ -1,8 +1,22 @@
 /*
- * Author: MoyuZJ
- * Team: LinearTeam
- * Contact: linearteam@foxmail.com
- * Made by MoyuZJ in China with ♥
+ * LinearPress Comment Data Service
+ *
+ * Comment persistence, moderation and listing queries.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/**
+ * Direct SQLite data access for comments: approved comments per post, admin
+ * listings joined with post titles and usernames, creation with
+ * minimum-length and field-length validation, and status moderation and
+ * deletion.
+ *
+ * @since 2.0.1
  */
 
 import { db } from '../core/database.js';

@@ -23,8 +23,11 @@
     ".env.example"
   ],
   "scripts": {
-    "dev": "node scripts/run.js index.ts",
-    "start": "node scripts/run.js index.ts",
+    "dev": "node scripts/serve.js",
+    "start": "node scripts/serve.js",
+    "start:direct": "node scripts/run.js index.ts",
+    "plugin:pack": "node scripts/run.js scripts/pack-plugin.ts",
+    "test:lpp": "node scripts/run.js scripts/lpp-boundary-check.ts",
     "db:init": "node scripts/run.js scripts/init-db.ts",
     "seed": "node scripts/run.js scripts/seed.ts",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
@@ -60,7 +63,9 @@
     "fs-extra": "^11.3.0",
     "lodash-es": "^4.17.21",
     "mysql2": "^3.23.4",
-    "tar": "^7.5.22"
+    "tar": "^7.5.22",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",
@@ -69,9 +74,7 @@
     "@types/express-session": "^1.18.1",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^22.15.21",
-    "@types/tar": "^6.1.13",
-    "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "@types/tar": "^6.1.13"
   },
   "repository": {
     "type": "git",

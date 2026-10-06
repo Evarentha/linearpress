@@ -1,19 +1,28 @@
 <!--
   Minimal Theme Post Template
 
-  Minimal theme override of the public post reading page.
+  Renders the post template for LinearPress.
 
   Authors:
   MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+  worryzu <worryzu@gmail.com> @LinearTeam
 
   Copyright (C) 2026 Evarentha
   SPDX-License-Identifier: GPL-3.0-or-later
 -->
-<!--
-  Theme-specific template for the public post page. Renders the
-  article with a MINIMAL THEME metadata line and an English
-  comments section with a guest response form.
-  @since 2.0.1
--->
 
-<article class="article article-theme"><p class="meta">MINIMAL THEME / <%= formatDate(post.created_at) %></p><h1><%= post.title %></h1><div class="article-body"><%- html %></div></article><section class="comments"><h2>Responses</h2><% comments.forEach(comment => { %><div class="comment"><strong><%= comment.guest_name || 'Reader' %></strong><p><%= comment.content %></p></div><% }) %><form method="post" action="<%= postUrl(post) %>/comments"><input name="guest_name" placeholder="Name"><textarea name="content" required placeholder="Leave a response"></textarea><button class="button" type="submit">Send</button></form></section>
+<article class="article article-theme"><p class="meta">MINIMAL THEME / <%= formatDate(post.created_at) %></p><h1><%= post.title %></h1><div class="article-body"><%- html %></div></article>
+<% if (typeof advancedCommentsPartial === 'string' && advancedCommentsPartial) { %>
+  <%- include(advancedCommentsPartial) %>
+<% } else { %>
+<section class="comments"><h2>Responses</h2>
+  <% if (typeof acCommentError === 'string' && acCommentError) { %><p class="notice" role="alert"><%= acCommentError %></p><% } %>
+  <% if (typeof notice !== 'undefined' && notice) { %><p class="notice">评论已提交，等待审核。</p><% } %>
+  <% comments.forEach(comment => { %><div class="comment"><strong><%= comment.guest_name || 'Reader' %></strong><p><%= comment.content %></p></div><% }) %>
+  <form method="post" action="<%= postUrl(post) %>/comments">
+    <% if (typeof currentUser !== 'undefined' && currentUser) { %><p>以 <strong><%= currentUser.username %></strong> 身份评论。</p>
+    <% } else { %><input name="guest_name" required placeholder="Name"><input name="guest_email" type="email" placeholder="Email (optional)"><% } %>
+    <textarea name="content" required placeholder="Leave a response"></textarea><button class="button" type="submit">Send</button>
+  </form>
+</section>
+<% } %>

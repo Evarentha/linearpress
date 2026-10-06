@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -23,6 +24,7 @@
  */
 
 import type { Context } from 'cordis';
+import { guardSqliteDatabase, sqliteOperation, sqliteTransaction } from './database.js';
 import type { HookSystem } from './hook-system.js';
 import type { PluginManager } from './plugin-manager.js';
 import * as commentData from '../services/comment.service.js';
@@ -30,26 +32,24 @@ import { completeOobe, getBaseConfig, isOobeCompleted, setBaseConfig } from '../
 import * as groupData from '../services/group.service.js';
 import { maintenance } from './maintenance.js';
 import { hasPermission } from '../services/permission.service.js';
-import { installFromNpm, installFromZip } from '../services/plugin-installer.js';
+import { beginManagedInstall } from './plugin-install-jobs.js';
+import { beginPluginChange } from './plugin-change-jobs.js';
 import * as postData from '../services/post.service.js';
 import * as userData from '../services/user.service.js';
 import type { Plugin } from '../types/index.js';
 import type { AuthService, CommentService, ConfigService, DatabaseService, GroupService, PermissionService, PluginService, PostService, UserService } from '../types/services.js';
 
 export function registerCoreServices(context: Context, hooks: HookSystem, manager: PluginManager): void {
-  const primaryDatabase = context.database;
+  const primaryDatabase = guardSqliteDatabase(context.database);
 
   const databaseService: DatabaseService = {
+    dialect: 'sqlite',
     raw: primaryDatabase,
-    all: <T>(sql: string, ...params: unknown[]) => primaryDatabase.prepare(sql).all(...params) as T[],
-    get: <T>(sql: string, ...params: unknown[]) => primaryDatabase.prepare(sql).get(...params) as T | undefined,
-    run: (sql, ...params) => primaryDatabase.prepare(sql).run(...params),
-    exec: (sql) => primaryDatabase.exec(sql),
-    transaction: async <T>(callback: () => T | Promise<T>): Promise<T> => {
-      primaryDatabase.exec('BEGIN IMMEDIATE');
-      try { const result = await callback(); primaryDatabase.exec('COMMIT'); return result; }
-      catch (error) { primaryDatabase.exec('ROLLBACK'); throw error; }
-    }
+    all: <T>(sql: string, ...params: unknown[]) => sqliteOperation(primaryDatabase, () => primaryDatabase.prepare(sql).all(...params) as T[]),
+    get: <T>(sql: string, ...params: unknown[]) => sqliteOperation(primaryDatabase, () => primaryDatabase.prepare(sql).get(...params) as T | undefined),
+    run: (sql, ...params) => sqliteOperation(primaryDatabase, () => primaryDatabase.prepare(sql).run(...params)),
+    exec: (sql) => sqliteOperation(primaryDatabase, () => primaryDatabase.exec(sql)),
+    transaction: (callback) => sqliteTransaction(primaryDatabase, callback)
   };
   context.provide('databaseService', databaseService);
 
@@ -98,8 +98,8 @@ export function registerCoreServices(context: Context, hooks: HookSystem, manage
     listPublished: postData.listPublished,
     save: async (input) => {
       const existing = input.id ? postData.findPostById(input.id) : undefined;
-      const draft = await hooks.trigger('post:beforeSave', { id: input.id ?? 0, title: input.title, slug: input.slug ?? '', content_json: input.blocks, html_cache: existing?.html_cache ?? null, status: input.status, author_id: input.authorId, views: existing?.views ?? 0, created_at: existing?.created_at ?? '', updated_at: existing?.updated_at ?? null });
-      const saved = postData.savePost({ id: draft.id || undefined, title: draft.title, slug: draft.slug, blocks: draft.content_json, status: draft.status, authorId: draft.author_id });
+      const draft = await hooks.trigger('post:beforeSave', { id: input.id ?? 0, title: input.title, slug: input.slug ?? '', content_json: input.blocks, html_cache: existing?.html_cache ?? null, status: input.status, author_id: input.authorId, ...(input.postType ? { postType: input.postType } : {}), views: existing?.views ?? 0, created_at: existing?.created_at ?? '', updated_at: existing?.updated_at ?? null });
+      const saved = postData.savePost({ id: draft.id || undefined, title: draft.title, slug: draft.slug, blocks: draft.content_json, status: draft.status, authorId: draft.author_id, postType: input.postType });
       return hooks.trigger('post:afterSave', saved);
     },
     remove: async (id) => {
@@ -166,28 +166,10 @@ export function registerCoreServices(context: Context, hooks: HookSystem, manage
       }
       await hooks.trigger('plugin:afterUninstall', payload);
     },
-    installNpm: async (spec) => {
-      maintenance.enter('plugin', manager.database);
-      const task = maintenance.addTask('install-npm', `正在安装 ${spec} ...`);
-      try {
-        const result = await installFromNpm(manager, spec);
-        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
-        return result;
-      } finally {
-        maintenance.exit(manager.database);
-      }
-    },
-    installZip: async (buffer) => {
-      maintenance.enter('plugin', manager.database);
-      const task = maintenance.addTask('install-zip', '正在解压插件文件');
-      try {
-        const result = await installFromZip(manager, buffer);
-        maintenance.updateTask(task.id, { progress: 100, status: 'done' });
-        return result;
-      } finally {
-        maintenance.exit(manager.database);
-      }
-    }
+    applyChange: (change) => beginPluginChange(manager, change),
+    installNpm: (spec) => beginManagedInstall(manager, { kind: 'npm', spec }),
+    installZip: (buffer) => beginManagedInstall(manager, { kind: 'zip', buffer }),
+    installLpp: (buffer) => beginManagedInstall(manager, { kind: 'lpp', buffer })
   };
   context.provide('plugins', pluginService);
 

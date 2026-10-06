@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -31,15 +32,24 @@ import type { HookSystem } from '../core/hook-system.js';
 import { maintenance } from '../core/maintenance.js';
 import { PERMALINK_OPTIONS, postUrl, registerPermalinkCommentRoutes, registerPermalinkRoutes, resolvePostParams } from '../core/permalinks.js';
 import { requestRestart } from '../core/restart.js';
+import { getInstallJob } from '../core/plugin-install-jobs.js';
+import { getPluginChangeJob } from '../core/plugin-change-jobs.js';
 import type { RouterCollector } from '../core/router-collector.js';
 import { LINEARPRESS_VERSION } from '../core/version.js';
 import { getBaseConfig } from '../services/config.service.js';
 import { checkPermission, requireAuth } from '../services/permission.service.js';
+import { validateBlocks } from '../services/post.service.js';
 import type { Block, CommentStatus, PostStatus, SiteConfig } from '../types/index.js';
 import type { DatabaseService, PluginService } from '../types/services.js';
 
 const BUILTIN_PLUGINS = ['seo', 'minimal-theme'];
-function parseBlocks(value: unknown): Block[] { try { const parsed = JSON.parse(String(value ?? '[]')) as Block[]; return Array.isArray(parsed) ? parsed : []; } catch { return []; } }
+function parseBlocks(value: unknown): Block[] {
+  if (typeof value !== 'string') throw new Error('缺少正文 JSON');
+  let parsed: unknown;
+  try { parsed = JSON.parse(value); } catch { throw new Error('正文 JSON 无法解析'); }
+  validateBlocks(parsed);
+  return parsed;
+}
 function routeParam(value: string | string[]): string { return Array.isArray(value) ? value[0] ?? '' : value; }
 function messageOf(error: unknown): string { return error instanceof Error ? error.message : '操作失败'; }
 const wrap = (fn: (req: Request, res: Response) => Promise<void>) => (req: Request, res: Response) => { fn(req, res).catch((error) => res.status(500).render('error', { title: '服务器错误', message: messageOf(error) })); };
@@ -65,9 +75,11 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
   router.register('get', '/oobe', wrap(async (_req, res) => {
     if (await config().isOobeCompleted()) return void res.redirect('/');
     const adminExists = !(await auth().isOobeRequired());
+    const currentUser = _req.session.userId ? await users().findById(_req.session.userId) : undefined;
     let step = Math.min(4, Math.max(1, Number(_req.session.oobeStep) || 1));
-    if (adminExists && step < 3) step = 3;
-    renderOobe(res, step, null, await config().get());
+    if (adminExists) step = currentUser?.is_super_admin ? Math.max(3, step) : 2;
+    _req.session.oobeStep = step;
+    renderOobe(res, step, adminExists && !currentUser?.is_super_admin ? new Error('超级管理员已存在，请填写其用户名和密码以继续初始化（不会重新创建账号）。') : null, await config().get());
   }));
 
   // ------------------------------------------------------------------ 域名急救
@@ -125,11 +137,18 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
         return void res.redirect('/oobe');
       }
       if (submitted === 2) {
-        const user = await auth().createSuperAdmin(String(req.body.username ?? ''), String(req.body.email ?? ''), String(req.body.password ?? ''), String(req.body.password_confirmation ?? ''));
+        const adminExists = !(await auth().isOobeRequired());
+        const user = adminExists
+          ? await auth().authenticate(String(req.body.username ?? ''), String(req.body.password ?? ''))
+          : await auth().createSuperAdmin(String(req.body.username ?? ''), String(req.body.email ?? ''), String(req.body.password ?? ''), String(req.body.password_confirmation ?? ''));
+        if (!user?.is_super_admin) return void res.status(403).render('error', { title: '无法继续初始化', message: '请使用已有超级管理员账号验证' });
         req.session.userId = user.id;
         req.session.oobeStep = 3;
         return void res.redirect('/oobe');
       }
+      const currentUser = req.session.userId ? await users().findById(req.session.userId) : undefined;
+      if (!currentUser?.is_super_admin) return void res.status(403).render('error', { title: '无法继续初始化', message: '请先验证超级管理员账号' });
+      if (submitted > (Number(req.session.oobeStep) || 3)) return void res.status(400).render('error', { title: '初始化步骤无效', message: '请先完成站点设置' });
       if (submitted === 3) {
         await config().set({
           siteName: String(req.body.siteName ?? '').trim() || 'LinearPress',
@@ -181,7 +200,7 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
   const createComment = wrap(async (req, res) => {
     const { slug, id } = resolvePostParams(req.params as Record<string, string | undefined>, getBaseConfig().permalink);
     const post = id ? await posts().findById(id) : await posts().findBySlug(slug ?? '');
-    if (!post) return void res.status(404).end();
+    if (!post || post.status !== 'published') return void res.status(404).end();
     if (isCommentRateLimited(String(req.ip ?? 'unknown'))) return void res.status(429).render('error', { title: '操作过于频繁', message: '评论提交过于频繁，请稍后再试。' });
     try {
       await comments().create({ postId: post.id, userId: req.session.userId, guestName: req.body.guest_name, guestEmail: req.body.guest_email, content: String(req.body.content ?? ''), ip: req.ip });
@@ -193,7 +212,19 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
   });
   registerPermalinkCommentRoutes(router, createComment);
 
-  router.register('get', '/', wrap(async (_req, res) => res.render('web/index', { title: '文章', posts: await posts().listPublished() })));
+  const renderArchive = wrap(async (req, res) => {
+    const rawPage = req.query.page;
+    if (rawPage !== undefined && (typeof rawPage !== 'string' || !/^[1-9]\d*$/.test(rawPage) || !Number.isSafeInteger(Number(rawPage)))) {
+      return void res.status(400).render('error', { title: '页码无效', message: 'page 必须是正整数' });
+    }
+    const pageSize = 20;
+    const total = Number((await databaseService().get<{ n: number }>("SELECT COUNT(*) n FROM posts WHERE status='published'"))?.n ?? 0);
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(Number(rawPage ?? 1), pages);
+    res.render('web/index', { title: '文章', posts: await posts().listPublished(pageSize, (page - 1) * pageSize), page, pages, total, pageSize });
+  });
+  router.register('get', '/', renderArchive);
+  router.register('get', '/archive', renderArchive);
 
   // ------------------------------------------------------------------ 认证
   router.register('get', '/login', (_req, res) => res.render('auth/login', { title: '登录', error: null }));
@@ -223,7 +254,22 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
   router.register('get', '/admin/posts', requireAuth, checkPermission('post:edit'), wrap(async (_req, res) => res.render('admin/posts', { title: '文章管理', posts: await posts().list() })));
   router.register('get', '/admin/posts/new', requireAuth, checkPermission('post:create'), (_req, res) => res.render('admin/post-edit', { title: '新建文章', post: null }));
   router.register('get', '/admin/posts/:id/edit', requireAuth, checkPermission('post:edit'), wrap(async (req, res) => res.render('admin/post-edit', { title: '编辑文章', post: await posts().findById(Number(req.params.id)) })));
-  router.register('post', '/admin/posts/save', requireAuth, checkPermission('post:edit'), wrap(async (req, res) => { await posts().save({ id: Number(req.body.id) || undefined, title: String(req.body.title ?? ''), slug: String(req.body.slug ?? ''), blocks: parseBlocks(req.body.content_json), status: String(req.body.status ?? 'draft') as PostStatus, authorId: req.session.userId! }); res.redirect('/admin/posts'); }));
+  router.register('post', '/admin/posts/save', requireAuth, wrap(async (req, res) => {
+    const rawId = req.body.id;
+    const id = rawId === undefined || rawId === '' || rawId === '0' || rawId === 0 ? undefined : Number(rawId);
+    if (id !== undefined && (!Number.isSafeInteger(id) || id <= 0)) return void res.status(400).render('error', { title: '保存失败', message: '文章 ID 无效' });
+    if (!await context.permissions.has(req.session.userId!, id ? 'post:edit' : 'post:create')) return void res.status(403).render('error', { title: '无权限', message: '没有执行此操作的权限' });
+    const existing = id ? await posts().findById(id) : undefined;
+    if (id && !existing) return void res.status(404).render('error', { title: '未找到', message: '文章不存在' });
+    try {
+      const authorId = req.body.author_id === undefined ? existing?.author_id ?? req.session.userId! : Number(req.body.author_id);
+      if (!Number.isSafeInteger(authorId) || authorId <= 0 || !await users().findById(authorId)) throw new Error('作者不存在');
+      const status = String(req.body.status ?? 'draft');
+      if (!['draft', 'published', 'archived'].includes(status)) throw new Error('文章状态无效');
+      await posts().save({ id, title: String(req.body.title ?? ''), slug: String(req.body.slug ?? ''), blocks: parseBlocks(req.body.content_json), status: status as PostStatus, authorId });
+      res.redirect('/admin/posts');
+    } catch (error) { res.status(400).render('error', { title: '保存失败', message: messageOf(error) }); }
+  }));
   router.register('post', '/admin/posts/:id/delete', requireAuth, checkPermission('post:delete'), wrap(async (req, res) => { await posts().remove(Number(req.params.id)); res.redirect('/admin/posts'); }));
 
   router.register('get', '/admin/comments', requireAuth, checkPermission('comment:moderate'), wrap(async (_req, res) => res.render('admin/comments', { title: '评论审核', comments: await comments().list() })));
@@ -295,9 +341,9 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
     await plugins().setConfig(id, parsed);
     res.redirect(`/admin/plugins/${id}/settings?notice=saved`);
   }));
-  router.register('post', '/admin/plugins/:id/toggle', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const id = routeParam(req.params.id); const plugin = (await plugins().list()).find((item) => item.id === id); if (!plugin) return void res.status(404).render('error', { title: '插件不存在', message: id }); await plugins().setEnabled(id, !plugin.enabled); res.redirect('/admin/plugins'); }));
+  router.register('post', '/admin/plugins/:id/toggle', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const id = routeParam(req.params.id); const plugin = (await plugins().list()).find((item) => item.id === id); if (!plugin) return void res.status(404).render('error', { title: '插件不存在', message: id }); try { const result = await plugins().applyChange({id,enabled:!plugin.enabled}); res.status(202).json({ok:true,jobId:result.job.id,statusUrl:result.statusUrl,message:result.job.message}); } catch(error) { res.status((error as {status?:number}).status===409?409:400).json({ok:false,message:messageOf(error)}); } }));
   router.register('post', '/admin/plugins/:id/uninstall', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { try { await plugins().uninstall(routeParam(req.params.id)); res.redirect('/admin/plugins'); } catch (error) { res.status(400).render('error', { title: '插件卸载失败', message: messageOf(error) }); } }));
-  router.register('post', '/admin/plugins/reorder', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const ids = Array.isArray(req.body.ids) ? req.body.ids : []; await Promise.all(ids.map((id: string, index: number) => plugins().setLoadOrder(id, index * 10))); res.json({ ok: true }); }));
+  router.register('post', '/admin/plugins/reorder', requireAuth, checkPermission('plugin:manage'), wrap(async (req, res) => { const ids = Array.isArray(req.body.ids) ? req.body.ids : []; try { const result = await plugins().applyChange({ids}); res.status(202).json({ok:true,jobId:result.job.id,statusUrl:result.statusUrl,message:result.job.message}); } catch(error) { res.status((error as {status?:number}).status===409?409:400).json({ok:false,message:messageOf(error)}); } }));
   router.register('post', '/admin/plugins/restart', requireAuth, checkPermission('plugin:manage'), (_req, res) => {
     maintenance.enter('update');
     res.status(202).json({ ok: true, restarting: true, message: '项目正在重启，页面将在稍后重新加载。' });
@@ -307,13 +353,29 @@ export function registerCoreRoutes(router: RouterCollector, hooks: HookSystem, c
     const spec = String((req.body as Record<string, unknown> | undefined)?.package ?? '').trim();
     if (!spec) return void res.status(400).json({ ok: false, message: '请输入 npm 包名' });
     if (!/^(@[a-zA-Z0-9._-]+\/)?[a-zA-Z0-9._-]+(@[a-zA-Z0-9._-]+)?$/.test(spec)) return void res.status(400).json({ ok: false, message: '包名格式应为 @scope/plugin-name（可选 @version）' });
-    try { const plugin = await plugins().installNpm(spec); res.json({ ok: true, plugin }); }
-    catch (error) { res.status(400).json({ ok: false, message: messageOf(error) }); }
+    try { const result = await plugins().installNpm(spec); res.status(202).json({ ok: true, jobId: result.job.id, statusUrl: result.statusUrl, message: result.job.message }); }
+    catch (error) { res.status((error as { status?: number }).status === 409 ? 409 : 400).json({ ok: false, message: messageOf(error) }); }
+  }));
+  router.register('get', '/admin/plugins/change-jobs/:id', requireAuth, checkPermission('plugin:manage'), (req,res) => {
+    res.setHeader('Cache-Control','no-store'); const job=getPluginChangeJob(routeParam(req.params.id));
+    if(!job)return void res.status(404).json({ok:false,message:'插件变更任务不存在'});
+    res.json({ok:true,job});
+  });
+  router.register('get', '/admin/plugins/install-jobs/:id', requireAuth, checkPermission('plugin:manage'), (req, res) => {
+    const job = getInstallJob(routeParam(req.params.id));
+    res.setHeader('Cache-Control', 'no-store');
+    if (!job) return void res.status(404).json({ ok: false, message: '安装任务不存在或已过期' });
+    res.json({ ok: true, job });
+  });
+  router.register('post', '/admin/plugins/install-lpp', requireAuth, checkPermission('plugin:manage'), express.raw({ type: ['application/vnd.linearpress.plugin+zip', 'application/zip', 'application/octet-stream'], limit: '64mb' }), wrap(async (req, res) => {
+    if (!Buffer.isBuffer(req.body) || !req.body.length) return void res.status(400).json({ ok: false, message: '请上传 .lpp 插件包' });
+    try { const result = await plugins().installLpp(req.body); res.status(202).json({ ok: true, jobId: result.job.id, statusUrl: result.statusUrl, message: result.job.message }); }
+    catch (error) { res.status((error as { status?: number }).status === 409 ? 409 : 400).json({ ok: false, message: messageOf(error) }); }
   }));
   router.register('post', '/admin/plugins/install-zip', requireAuth, checkPermission('plugin:manage'), express.raw({ type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'], limit: '64mb' }), wrap(async (req, res) => {
     const buffer = req.body as Buffer;
     if (!Buffer.isBuffer(buffer) || buffer.length === 0) return void res.status(400).json({ ok: false, message: '请上传 .zip 压缩包' });
-    try { const plugin = await plugins().installZip(buffer); res.json({ ok: true, plugin }); }
-    catch (error) { res.status(400).json({ ok: false, message: messageOf(error) }); }
+    try { const result = await plugins().installZip(buffer); res.status(202).json({ ok: true, jobId: result.job.id, statusUrl: result.statusUrl, message: result.job.message }); }
+    catch (error) { res.status((error as { status?: number }).status === 409 ? 409 : 400).json({ ok: false, message: messageOf(error) }); }
   }));
 }

@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -20,7 +21,7 @@
  */
 
 import bcrypt from 'bcryptjs';
-import { db } from '../core/database.js';
+import { db, sqliteTransaction } from '../core/database.js';
 import type { Group, User } from '../types/index.js';
 
 interface GroupRow extends Omit<Group, 'permissions'> { permissions: string; }
@@ -37,16 +38,11 @@ export async function createSuperAdmin(username: string, email: string, password
   const group = db.prepare("SELECT id FROM groups WHERE name='admin'").get() as { id: number } | undefined;
   if (!group) throw new Error('管理员权限组不存在');
   const hash = await bcrypt.hash(password, 12);
-  db.exec('BEGIN IMMEDIATE');
-  try {
+  return sqliteTransaction(db, () => {
     if (!isOobeRequired()) throw new Error('超级管理员已由其他请求创建');
     const result = db.prepare('INSERT INTO users(username,password_hash,email,group_id,is_super_admin) VALUES(?,?,?,?,1)').run(username.trim(), hash, email.trim(), group.id);
-    db.exec('COMMIT');
     return findUserById(Number(result.lastInsertRowid))!;
-  } catch (error) {
-    db.exec('ROLLBACK');
-    throw error;
-  }
+  });
 }
 export function getGroup(id: number): Group | undefined { const row = db.prepare('SELECT * FROM groups WHERE id = ?').get(id) as GroupRow | undefined; return row ? { ...row, permissions: JSON.parse(row.permissions) as string[] } : undefined; }
 export function listUsers(): Array<User & { group_name: string }> { return db.prepare('SELECT users.*, groups.name AS group_name FROM users JOIN groups ON groups.id = users.group_id ORDER BY users.created_at DESC').all() as Array<User & { group_name: string }>; }

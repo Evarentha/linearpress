@@ -1,14 +1,16 @@
 /*
-  Built-in Block Editor Frontend
+ * Built-in Block Editor Frontend
+ *
+ * Frontend logic for the admin block editor.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
-  Frontend logic for the admin block editor.
-
-  Authors:
-  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
-
-  Copyright (C) 2026 Evarentha
-  SPDX-License-Identifier: GPL-3.0-or-later
-*/
 /**
   Implements the block-based post editor: registers the built-in block
   types (paragraph, heading, blockquote, image, custom HTML), renders

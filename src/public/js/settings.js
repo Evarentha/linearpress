@@ -1,14 +1,16 @@
 /*
-  Settings Tabs Frontend
+ * Settings Tabs Frontend
+ *
+ * Frontend logic for the site settings page.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
-  Frontend logic for the site settings page.
-
-  Authors:
-  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
-
-  Copyright (C) 2026 Evarentha
-  SPDX-License-Identifier: GPL-3.0-or-later
-*/
 /**
   Wires the tab navigation that switches between settings panels,
   and manages the backup-domain list on the domain tab: adding new

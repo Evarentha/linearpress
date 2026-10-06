@@ -1,0 +1,28 @@
+<!--
+  Homepage Post List
+
+  Public homepage listing published posts.
+
+  Authors:
+  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+  worryzu <worryzu@gmail.com> @LinearTeam
+
+  Copyright (C) 2026 Evarentha
+  SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+<!--
+  Renders the site introduction (site name, title and subtitle) and
+  the list of posts with publication date, view count and links to
+  each article.
+  @since 2.0.1
+-->
+
+<section class="intro"><p class="eyebrow"><%= siteConfig.siteName || 'INDEPENDENT PUBLISHING SYSTEM' %></p><h1><%= siteConfig.siteTitle || '写下值得留下的内容。' %></h1><p class="lede"><%= siteConfig.siteSubtitle || 'LinearPress 是一个极简、可扩展、服务端渲染的写作空间。' %></p></section><section class="post-list"><% posts.forEach(post => { %><% if (typeof isShuoShuo === 'function' && isShuoShuo(post.slug)) { %><article class="post-row shuoshuo-row"><div class="shuoshuo-main"><p class="meta">说说 / <%= formatDate(post.created_at) %></p><%- typeof shuoshuoHtml === 'function' ? shuoshuoHtml(post) : post.title %></div></article><% } else { %><article class="post-row"><div><p class="meta"><%= formatDate(post.created_at) %> / <%= post.views %> VIEWS</p><h2><a href="<%= postUrl(post) %>"><%= post.title %></a></h2></div><a class="arrow" href="<%= postUrl(post) %>">READ →</a></article><% } %><% }) %></section>
+
+<% var totalPages = (typeof pages !== 'undefined' && Number.isFinite(Number(pages))) ? Math.max(1, Math.floor(Number(pages))) : 1; var currentPage = (typeof page !== 'undefined' && Number.isFinite(Number(page))) ? Math.min(totalPages, Math.max(1, Math.floor(Number(page)))) : 1; %>
+<% if (totalPages > 1) { %><nav class="pagination" aria-label="文章分页">
+  <% if (currentPage > 1) { %><a class="button" rel="prev" href="/?page=<%= currentPage - 1 %>">上一页</a><% } %>
+  <span aria-current="page"><%= currentPage %> / <%= totalPages %></span>
+  <% if (currentPage < totalPages) { %><a class="button" rel="next" href="/?page=<%= currentPage + 1 %>">下一页</a><% } %>
+</nav><% } %>

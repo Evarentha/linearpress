@@ -5,13 +5,15 @@
 
   Authors:
   MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+  worryzu <worryzu@gmail.com> @LinearTeam
 
   Copyright (C) 2026 Evarentha
   SPDX-License-Identifier: GPL-3.0-or-later
 -->
+
 <!--
   Renders the plugin management console. Provides forms to install
-  plugins from npm or from uploaded ZIP files (with optional batch
+  plugins from npm or from uploaded LPP/ZIP files (with optional batch
   install), lists installed plugins with settings, enable/disable
   and uninstall actions, and supports dragging list entries to
   reorder plugin load priority.
@@ -19,18 +21,26 @@
 -->
 
 <div class="page-head"><h1>插件</h1><p class="eyebrow">拖动条目调整加载顺序</p></div>
+<link rel="stylesheet" href="/css/plugin-install.css">
 <section class="plugin-install">
   <h2>安装插件</h2>
-  <form id="npm-install-form">
-    <input type="text" id="npm-package-name" placeholder="@scope/plugin-name 或 plugin-name@1.0.0" autocomplete="off" required>
-    <button type="submit" class="button">从 npm 安装</button>
+  <p id="install-help">推荐使用 .lpp 插件包，也兼容 .zip 和 npm。插件是受信任的服务器代码，请只安装可信来源。服务器会自动重启并验证结果；关闭页面不会取消已受理的任务。批量安装将逐个等待验证，失败即停止；刷新后请重新选择尚未上传的文件。</p>
+  <noscript><p class="notice">安装需要 JavaScript 以查询服务器重启后的验证结果。请启用 JavaScript；这些表单不会在无脚本时提交安装。</p></noscript>
+  <form id="npm-install-form" aria-describedby="install-help">
+    <input type="text" id="npm-package-name" aria-label="npm 包名" placeholder="@scope/plugin-name 或 plugin-name@1.0.0" autocomplete="off" required disabled>
+    <button type="submit" class="button" disabled>从 npm 安装</button>
   </form>
-  <form id="zip-install-form">
-    <input type="file" id="zip-file" accept=".zip,application/zip,application/x-zip-compressed" multiple required>
-    <label class="batch-toggle"><input type="checkbox" id="zip-batch"> <span>批量安装</span></label>
-    <button type="submit" class="button">上传 ZIP 安装</button>
+  <form id="zip-install-form" aria-describedby="install-help">
+    <input type="file" id="zip-file" aria-label="选择 .lpp（推荐）或 .zip 插件包" accept=".lpp,.zip,application/vnd.linearpress.plugin+zip,application/zip,application/x-zip-compressed" multiple required disabled>
+    <label class="batch-toggle"><input type="checkbox" id="zip-batch" disabled> <span>批量安装（串行）</span></label>
+    <button type="submit" class="button" disabled>上传插件包（推荐 .lpp）</button>
   </form>
-  <p id="install-status" class="notice" hidden></p>
+  <progress id="install-progress" aria-label="插件安装及重启验证进行中" aria-describedby="install-status" hidden></progress>
+  <p id="install-status" class="notice" role="status" aria-live="polite" aria-atomic="true" hidden></p>
+  <button id="install-resume" type="button" class="button" hidden>继续查询（不重新安装）</button>
+  <a id="install-login" href="/login" target="_blank" rel="noopener" hidden>重新登录（新标签页），然后继续查询</a>
+  <a id="install-result" href="/admin/plugins" hidden>查看插件列表</a>
+  <button id="install-unlock" type="button" class="button" hidden>已核对服务器记录，解锁安装表单</button>
 </section>
 <ol class="plugin-list" id="plugin-list"><% plugins.forEach(plugin => { %><li draggable="true" data-plugin-id="<%= plugin.id %>"><span class="drag-handle">::</span><div class="plugin-icon"><% if (plugin.icon) { %><%= plugin.icon %><% } else { %><%= (plugin.name || plugin.id)[0].toUpperCase() %><% } %></div><div class="plugin-info"><strong><%= plugin.name %></strong><small><%= plugin.id %> · v<%= plugin.version %><% if (plugin.description) { %> · <%= plugin.description %><% } %></small><small>order <%= plugin.load_order %></small></div><span class="plugin-status"><%= plugin.enabled ? '启用' : '停用' %></span><div class="plugin-actions"><% customSettingsFor(plugin.id).forEach(entry => { %><a class="button button-mini" href="<%= entry.link || ('/admin/plugins/' + plugin.id + '/settings') %>"><%= entry.label %></a><% }) %><a class="button button-mini" href="/admin/plugins/<%= plugin.id %>/settings">设置</a><form method="post" action="/admin/plugins/<%= plugin.id %>/toggle"><button class="button button-mini"><%= plugin.enabled ? '停用' : '启用' %></button></form><% if (!builtinPlugins.includes(plugin.id)) { %><form method="post" action="/admin/plugins/<%= plugin.id %>/uninstall" onsubmit="return confirm('删除将移除插件目录及其数据，继续吗？')"><button class="button button-mini danger">删除</button></form><% } %></div></li><% }) %></ol><p id="sort-status" class="notice" hidden>顺序已保存。</p>
 <script src="/js/plugin-sort.js"></script>

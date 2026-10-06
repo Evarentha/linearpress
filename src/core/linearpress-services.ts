@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -28,6 +29,7 @@ import type { HookSystem } from './hook-system.js';
 import type { RouterCollector } from './router-collector.js';
 import type { SqliteDatabase } from './database.js';
 import type { RegisteredRoute } from '../types/plugin.js';
+import { appendOwned, bindLifecycle } from './lifecycle-scope.js';
 
 export interface LinearPressWeb {
   register(method: string, path: string, ...handlers: RequestHandler[]): void;
@@ -60,16 +62,12 @@ export function provideLinearPressServices(context: Context, services: LinearPre
   assign('admin', services.admin);
 }
 
-export function createExpressWebAdapter(router: RouterCollector, middleware: RequestHandler[], viewPaths: string[], staticMounts: Array<{ id: string; dir: string }>, pluginId: () => string): LinearPressWeb {
+export function createExpressWebAdapter(router: RouterCollector, middleware: RequestHandler[], viewPaths: string[], staticMounts: Array<{ id: string; dir: string }>, pluginId: () => string, viewsChanged: () => void = () => {}): LinearPressWeb {
   return {
-    register: (method, path, ...handlers) => {
-      router.setCurrentPluginId(pluginId());
-      try { router.register(method, path, ...handlers); }
-      finally { router.setCurrentPluginId('core'); }
-    },
-    middleware: (handler) => middleware.push(handler),
-    viewDir: (dir) => { if (!viewPaths.includes(dir)) viewPaths.push(dir); },
-    staticDir: (dir) => { const id = pluginId(); if (!staticMounts.some((mount) => mount.id === id && mount.dir === dir)) staticMounts.push({ id, dir }); },
+    register: (method, path, ...handlers) => router.register(method, path, ...handlers),
+    middleware: (handler) => appendOwned(middleware, bindLifecycle(handler)),
+    viewDir: (dir) => appendOwned(viewPaths, dir, viewsChanged),
+    staticDir: (dir) => appendOwned(staticMounts, { id: pluginId(), dir }),
     getRoutes: () => router.listRoutes()
   };
 }

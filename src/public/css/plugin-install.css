@@ -1,0 +1,26 @@
+/*
+ * LinearPress Plugin Install
+ *
+ * Styles the plugin install interface for LinearPress.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+/* Installation-only affordances. Preserve the native and Fluent theme styles. */
+#install-progress { display: block; max-width: 100%; margin-block: .75rem; }
+#install-status { overflow-wrap: anywhere; }
+#install-progress[hidden], #install-status[hidden], #install-resume[hidden],
+#install-login[hidden], #install-result[hidden], #install-unlock[hidden] { display: none; }
+#zip-install-form .plugin-package-picker { position: relative; }
+/* Retain the theme's file label, but keep its real input keyboard accessible. */
+#zip-install-form .plugin-package-picker input[type="file"] {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+}
+#zip-install-form .plugin-package-picker:focus-within { outline: 2px solid currentColor; outline-offset: 2px; }
+#zip-install-form .plugin-package-picker:has(input:disabled) { opacity: .6; cursor: not-allowed; }
+#zip-install-form .plugin-package-picker input:disabled { cursor: not-allowed; }

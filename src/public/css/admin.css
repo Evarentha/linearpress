@@ -1,14 +1,16 @@
 /*
-  Admin Console Stylesheet
+ * Admin Console Stylesheet
+ *
+ * Styles for the admin console interface.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
-  Styles for the admin console interface.
-
-  Authors:
-  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
-
-  Copyright (C) 2026 Evarentha
-  SPDX-License-Identifier: GPL-3.0-or-later
-*/
 /*
   Stylesheet for admin pages: the fixed sidebar navigation with
   collapsible groups and mobile burger drawer, stats grid, data

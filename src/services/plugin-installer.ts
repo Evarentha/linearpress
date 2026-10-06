@@ -1,185 +1,181 @@
 /*
  * LinearPress Plugin Installer
  *
- * Validated plugin installation from npm packages or ZIP archives.
+ * Validated, staged installation; never executes plugin code or npm scripts.
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-/**
- * Parses npm specs, fetches the target tarball from the registry, and
- * extracts <code>.tgz</code>/<code>.zip</code> payloads into a temp staging
- * directory with zip-slip protection. The plugin root is located, its
- * manifest and entry-file lifecycle exports are validated statically
- * (plugin code is never executed), and only then is the directory copied
- * into <code>src/plugins</code> and registered in the infrastructure
- * database; any validation failure throws before anything is installed.
- *
- * @since 2.0.1
- */
-
 import fs from 'fs-extra';
-import os from 'node:os';
 import path from 'node:path';
-import AdmZip from 'adm-zip';
+import { createHash } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
 import * as tar from 'tar';
 import type { PluginManager } from '../core/plugin-manager.js';
+import { bindInstallOwnership, ensureInstallOwnership } from './plugin-install-ownership.js';
+import { createPluginInstallStage, reapPluginInstallStaging, STAGE_MARKER } from './plugin-install-staging.js';
+export { reapPluginInstallStaging } from './plugin-install-staging.js';
 import type { PluginManifest } from '../types/plugin.js';
+import { pluginPath, rejectSymlinks, validatePluginEntry } from '../core/plugin-validation.js';
+import { ArchivePaths, PACKAGE_LIMITS, validateLegacyFiles, validateLpp, validateZip, type ValidatedPackage } from './lpp-package.js';
 
 export interface PluginInstallResult { id: string; name: string; version: string; }
+export type PluginInstallSource = { kind: 'lpp' | 'zip'; buffer: Buffer } | { kind: 'npm'; spec: string };
+export interface PreparedPluginInstall {
+  manifest: PluginManifest;
+  commit(manager: PluginManager, options?: { installationId?: string }): Promise<PluginInstallResult>;
+  cleanup(): Promise<void>;
+}
+export const INSTALL_MARKER = '.linearpress-install.json';
 
-const PLUGIN_TYPES = new Set(['backend', 'frontend', 'both', 'theme', 'driver']);
-const ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
-// 入口文件必须导出至少一个生命周期函数（与 plugin-manager importEntry 的约束一致）
-const LIFECYCLE_EXPORT = /\bexport\s+(?:default|const|function|async\s+function)\s+(?:preboot|bootstrap|activate|deactivate)?\b/;
-
-function messageOf(error: unknown): string { return error instanceof Error ? error.message : '未知错误'; }
-
-/** 解析 npm 包名/版本，支持 name、name@version、@scope/name、@scope/name@version */
 function parseNpmSpec(spec: string): { name: string; version?: string } {
-  const trimmed = spec.trim();
-  if (!trimmed) throw new Error('请输入 npm 包名');
-  if (trimmed.startsWith('@')) {
-    const at = trimmed.lastIndexOf('@');
-    if (at > 0) return { name: trimmed.slice(0, at), version: trimmed.slice(at + 1) || undefined };
-    return { name: trimmed };
-  }
-  const at = trimmed.indexOf('@');
-  if (at === -1) return { name: trimmed };
-  return { name: trimmed.slice(0, at), version: trimmed.slice(at + 1) || undefined };
+  if (typeof spec !== 'string' || spec.length > 256) throw new Error('Invalid npm package spec');
+  const match = /^((?:@[a-z0-9._-]+\/)?[a-z0-9][a-z0-9._-]*)(?:@([a-zA-Z0-9.+_-]+))?$/.exec(spec.trim());
+  if (!match) throw new Error('Use an npm package name, optionally @version or @tag; URLs and local paths are forbidden');
+  return { name: match[1], version: match[2] };
 }
-
-/** 从 npm registry 获取目标版本及其 tarball 内容 */
-async function fetchNpmTarball(name: string, version?: string): Promise<{ version: string; buffer: Buffer }> {
-  const base = `https://registry.npmjs.org/${encodeURIComponent(name)}`;
-  const url = version ? `${base}/${encodeURIComponent(version)}` : base;
-  const response = await fetch(url, { headers: { accept: 'application/vnd.npm.install-v1+json' }, signal: AbortSignal.timeout(30_000) });
-  if (response.status === 404) throw new Error(`npm 包 ${name}${version ? '@' + version : ''} 不存在`);
-  if (!response.ok) throw new Error(`获取 npm 包信息失败（HTTP ${response.status}）`);
-  const meta = await response.json() as {
-    'dist-tags'?: Record<string, string>;
-    versions?: Record<string, { dist?: { tarball?: string } }>;
-    dist?: { tarball?: string };
-    version?: string;
-  } as { 'dist-tags'?: Record<string, string>; versions?: Record<string, { dist?: { tarball?: string } }>; dist?: { tarball?: string }; version?: string };
-
-  let chosenVersion = version;
-  let manifest: { dist?: { tarball?: string } } | undefined;
-  if (chosenVersion) {
-    manifest = meta;
-  } else {
-    chosenVersion = meta['dist-tags']?.latest;
-    manifest = chosenVersion ? meta.versions?.[chosenVersion] : undefined;
-  }
-  if (!chosenVersion || !manifest) throw new Error(`npm 包 ${name} 未找到可用版本`);
-  const tarballUrl = manifest.dist?.tarball;
-  if (!tarballUrl) throw new Error(`npm 包 ${name} 缺少下载地址`);
-  const tarball = await fetch(tarballUrl, { signal: AbortSignal.timeout(60_000) });
-  if (!tarball.ok) throw new Error('下载 npm 包失败');
-  return { version: chosenVersion, buffer: Buffer.from(await tarball.arrayBuffer()) };
+async function boundedBody(response: Response, limit: number): Promise<Buffer> {
+  if (!response.ok) throw new Error(`npm registry HTTP ${response.status}`);
+  if (Number(response.headers.get('content-length') ?? 0) > limit) { await response.body?.cancel(); throw new Error('npm response size quota exceeded'); }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('Empty npm registry response');
+  const chunks: Buffer[] = []; let size = 0;
+  try {
+    while (true) { const { value, done } = await reader.read(); if (done) break; size += value.length; if (size > limit) throw new Error('npm response size quota exceeded'); chunks.push(Buffer.from(value)); }
+  } catch (error) { await reader.cancel().catch(() => undefined); throw error; }
+  finally { reader.releaseLock(); }
+  return Buffer.concat(chunks, size);
 }
-
-/** 解压 .tgz 到目标目录 */
-async function extractTgz(buffer: Buffer, target: string): Promise<void> {
-  const file = path.join(target, 'payload.tgz');
-  await fs.writeFile(file, buffer);
-  await tar.x({ file, cwd: target });
-  await fs.remove(file).catch(() => undefined);
+async function fetchNpmTarball(spec: string): Promise<Buffer> {
+  const { name, version = 'latest' } = parseNpmSpec(spec);
+  const response = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}/${encodeURIComponent(version)}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(30000), redirect: 'error' });
+  const meta = JSON.parse((await boundedBody(response, PACKAGE_LIMITS.metadataBytes)).toString('utf8')) as { dist?: { tarball?: string; integrity?: string; shasum?: string } };
+  const dist = meta.dist;
+  if (!dist?.tarball) throw new Error('npm metadata has no tarball');
+  const url = new URL(dist.tarball);
+  if (url.protocol !== 'https:' || url.hostname !== 'registry.npmjs.org' || url.port || url.username || url.password) throw new Error('npm tarball must use the public HTTPS npm registry');
+  const buffer = await boundedBody(await fetch(url, { signal: AbortSignal.timeout(60000), redirect: 'error' }), PACKAGE_LIMITS.archiveBytes);
+  if (dist.integrity) {
+    const tokens = dist.integrity.split(/\s+/).map((token) => /^(sha512|sha256)-([A-Za-z0-9+/]+={0,2})$/.exec(token)).filter((token) => token !== null);
+    if (!tokens.length || !tokens.some((token) => createHash(token[1]).update(buffer).digest('base64') === token[2])) throw new Error('npm tarball integrity failure');
+  } else if (dist.shasum) {
+    if (!/^[a-f0-9]{40}$/.test(dist.shasum) || createHash('sha1').update(buffer).digest('hex') !== dist.shasum) throw new Error('npm tarball SHA-1 integrity failure');
+  } else throw new Error('npm tarball lacks integrity metadata');
+  return buffer;
 }
-
-/** 解压 zip 到目标目录（含 zip-slip 防护） */
-function extractZip(buffer: Buffer, target: string): void {
-  let zip: AdmZip;
-  try { zip = new AdmZip(buffer); }
-  catch { throw new Error('不是有效的 ZIP 压缩包：文件已损坏或格式不受支持'); }
-  const entries = zip.getEntries();
-  if (!entries.length) throw new Error('压缩包为空');
-  for (const entry of entries) {
-    const name = entry.entryName.replace(/\\/g, '/');
-    if (name.startsWith('/') || name.split('/').includes('..')) throw new Error('压缩包中包含非法路径');
-  }
-  zip.extractAllTo(target, true);
-}
-
-/** 在解压根目录（或其直接子目录）中找到插件主目录（包含 plugin.json） */
-function findPluginRoot(staging: string): string {
-  if (fs.existsSync(path.join(staging, 'plugin.json'))) return staging;
-  const children = fs.readdirSync(staging, { withFileTypes: true });
-  for (const child of children) {
-    if (child.isDirectory() && fs.existsSync(path.join(staging, child.name, 'plugin.json'))) return path.join(staging, child.name);
-  }
-  throw new Error('不是有效的 LinearPress 插件：未找到 plugin.json');
-}
-
-/** 读取并校验插件 Manifest */
-function readManifest(rootDir: string): PluginManifest {
-  const manifestPath = path.join(rootDir, 'plugin.json');
-  if (!fs.existsSync(manifestPath)) throw new Error('不是有效的 LinearPress 插件：缺少 plugin.json');
-  let raw: unknown;
-  try { raw = fs.readJsonSync(manifestPath); } catch { throw new Error('不是有效的 LinearPress 插件：plugin.json 无法解析'); }
-  const m = raw as Partial<PluginManifest>;
-  for (const field of ['id', 'name', 'version', 'type', 'main'] as const) {
-    if (typeof m[field] !== 'string' || !m[field]!.trim()) throw new Error(`不是有效的 LinearPress 插件：缺少必填字段 ${field}`);
-  }
-  if (!PLUGIN_TYPES.has(m.type!)) throw new Error(`不是有效的 LinearPress 插件：type 必须是 ${[...PLUGIN_TYPES].join('/')} 之一`);
-  const id = m.id!.trim();
-  if (!ID_PATTERN.test(id) || id === '.' || id === '..') throw new Error(`不是有效的 LinearPress 插件：id「${id}」不合法`);
-  return { ...m, id, name: m.name!.trim(), version: m.version!.trim(), type: m.type as PluginManifest['type'], main: m.main!.trim() } as PluginManifest;
-}
-
-/** 校验入口文件存在且导出生命周期函数（静态检查，不执行插件代码） */
-function validateEntry(rootDir: string, main: string): void {
-  const entryPath = path.resolve(rootDir, main);
-  if (!entryPath.startsWith(rootDir + path.sep) || !fs.existsSync(entryPath)) throw new Error(`不是有效的 LinearPress 插件：入口文件 ${main} 不存在`);
-  const source = fs.readFileSync(entryPath, 'utf8');
-  if (!LIFECYCLE_EXPORT.test(source)) throw new Error('不是有效的 LinearPress 插件：入口文件未导出 preboot/bootstrap/activate 生命周期函数');
-}
-
-/** 把已校验通过的插件目录复制到 src/plugins/<id> 并写入基础设施数据库 */
-function installFromDir(manager: PluginManager, rootDir: string): PluginInstallResult {
-  const manifest = readManifest(rootDir);
-  validateEntry(rootDir, manifest.main);
-  const pluginsRoot = path.join(process.cwd(), 'src', 'plugins');
-  const dest = path.join(pluginsRoot, manifest.id);
-  if (fs.existsSync(dest)) throw new Error(`插件 ${manifest.id} 已存在于 plugins 目录`);
-  const existing = manager.database.prepare('SELECT id FROM plugins WHERE id=?').get(manifest.id) as { id: string } | undefined;
-  if (existing) throw new Error(`插件 ${manifest.id} 已安装`);
-  fs.ensureDirSync(pluginsRoot);
-  fs.copySync(rootDir, dest);
-  const maxOrder = (manager.database.prepare('SELECT COALESCE(MAX(load_order),0) AS m FROM plugins').get() as { m: number }).m;
-  manager.database.prepare('INSERT INTO plugins(id,name,version,type,icon,description,enabled,load_order) VALUES(?,?,?,?,?,?,1,?)').run(manifest.id, manifest.name, manifest.version, manifest.type, manifest.icon ?? null, manifest.description ?? null, maxOrder + 10);
-  return { id: manifest.id, name: manifest.name, version: manifest.version };
-}
-
-async function withStaging<T>(work: (staging: string) => T): Promise<T> {
-  const staging = await fs.mkdtemp(path.join(os.tmpdir(), 'lp-install-'));
-  try { return await work(staging); }
-  finally { await fs.remove(staging).catch(() => undefined); }
-}
-
-/** 从 npm registry 下载并安装插件（校验失败抛错，不安装） */
-export async function installFromNpm(manager: PluginManager, spec: string): Promise<PluginInstallResult> {
-  const { name, version } = parseNpmSpec(spec);
-  const { buffer } = await fetchNpmTarball(name, version);
-  return withStaging(async (staging) => {
-    await extractTgz(buffer, staging);
-    const rootDir = findPluginRoot(staging);
-    try { return installFromDir(manager, rootDir); }
-    catch (error) { throw new Error(`${messageOf(error)}（来源：npm 包 ${name}${version ? '@' + version : ''}）`); }
+/** TAR is also read into a bounded file map, never extracted by library path/link handling. */
+async function readTgz(buffer: Buffer): Promise<ValidatedPackage> {
+  if (!buffer.length || buffer.length > PACKAGE_LIMITS.archiveBytes) throw new Error('Empty/oversized npm archive');
+  let expanded: Buffer;
+  try { expanded = gunzipSync(buffer, { maxOutputLength: PACKAGE_LIMITS.totalBytes + PACKAGE_LIMITS.entries * 1024 }); }
+  catch { throw new Error('Invalid/oversized npm gzip stream'); }
+  if (expanded.length > 1024 * 1024 && expanded.length > buffer.length * PACKAGE_LIMITS.ratio) throw new Error('npm expansion ratio quota exceeded');
+  const files = new Map<string, Buffer>(), paths = new ArchivePaths(); let count = 0, total = 0;
+  await new Promise<void>((resolve, reject) => {
+    const parser = new tar.Parser({ strict: true, maxMetaEntrySize: PACKAGE_LIMITS.metadataBytes });
+    parser.on('error', reject);
+    parser.on('ignoredEntry', () => parser.abort(new Error('npm archive contains an unsupported/oversized entry')));
+    parser.on('meta', () => { if (++count > PACKAGE_LIMITS.entries) parser.abort(new Error('npm archive metadata count quota exceeded')); });
+    parser.on('end', resolve);
+    parser.on('entry', (entry: tar.ReadEntry) => {
+      try {
+        if (++count > PACKAGE_LIMITS.entries || !['File', 'OldFile', 'Directory'].includes(entry.type)) throw new Error('npm archive has links/special files or too many entries');
+        const directory = entry.type === 'Directory';
+        const name = directory && entry.path.endsWith('/') ? entry.path.slice(0, -1) : entry.path;
+        paths.add(name, directory); total += entry.size;
+        if (entry.size > PACKAGE_LIMITS.fileBytes || total > PACKAGE_LIMITS.totalBytes || (directory && entry.size)) throw new Error('npm archive size quota exceeded');
+        const chunks: Buffer[] = []; let size = 0;
+        entry.on('data', (chunk: Buffer) => { size += chunk.length; if (size > entry.size || size > PACKAGE_LIMITS.fileBytes) parser.abort(new Error('npm entry exceeds declared size')); else chunks.push(chunk); });
+        entry.on('end', () => { if (size !== entry.size) parser.abort(new Error('Truncated npm archive entry')); else if (!directory) files.set(name, Buffer.concat(chunks, size)); });
+        entry.resume();
+      } catch (error) { parser.abort(error instanceof Error ? error : new Error('Invalid npm archive')); }
+    });
+    parser.end(expanded);
   });
+  return validateLegacyFiles(files);
 }
-
-/** 从上传的 zip 压缩包安装插件（校验失败抛错，不安装） */
-export async function installFromZip(manager: PluginManager, buffer: Buffer): Promise<PluginInstallResult> {
-  if (!buffer || !buffer.length) throw new Error('上传的压缩包为空');
-  return withStaging(async (staging) => {
-    extractZip(buffer, staging);
-    const rootDir = findPluginRoot(staging);
-    try { return installFromDir(manager, rootDir); }
-    catch (error) { throw new Error(`${messageOf(error)}（来源：上传的 ZIP 压缩包）`); }
-  });
+function controlledDirectory(parent: string, name: string): string {
+  const target = path.join(parent, name);
+  fs.ensureDirSync(target);
+  const stat = fs.lstatSync(target);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Installation directory must not be a symlink');
+  return target;
 }
+function assertUninstalled(manager: PluginManager, pluginsRoot: string, id: string): string {
+  const destination = pluginPath(pluginsRoot, id);
+  if (fs.readdirSync(pluginsRoot).some((name) => name.toLowerCase() === id.toLowerCase())) throw new Error(`插件 ${id} 已存在于 plugins 目录`);
+  if (manager.database.prepare('SELECT id FROM plugins WHERE LOWER(id)=LOWER(?)').get(id)) throw new Error(`插件 ${id} 已安装`);
+  return destination;
+}
+/** Static inspection only. Use preparePluginInstall for journal -> commit without re-downloading. */
+export async function inspectPluginArchive(buffer: Buffer, format: 'lpp' | 'zip'): Promise<{ manifest: PluginManifest }> {
+  const prepared = await preparePluginInstall({ kind: format, buffer });
+  try { return { manifest: prepared.manifest }; } finally { await prepared.cleanup(); }
+}
+/**
+ * No deployment/DB mutation until commit. The caller must persist its durable job first.
+ * The stage is a sibling of plugins on the same filesystem, permitting atomic rename.
+ */
+export async function preparePluginInstall(source: PluginInstallSource): Promise<PreparedPluginInstall> {
+  reapPluginInstallStaging();
+  let validated: ValidatedPackage;
+  if (source.kind === 'npm') validated = await readTgz(await fetchNpmTarball(source.spec));
+  else if (source.kind === 'lpp') validated = await validateLpp(source.buffer);
+  else if (source.kind === 'zip') validated = await validateZip(source.buffer);
+  else throw new Error('Unsupported plugin package source');
+  const { manifest, files } = validated;
+  if ([...files.keys()].some((name) => name.split('/').some((part) => [INSTALL_MARKER, STAGE_MARKER].includes(part.toLowerCase())))) throw new Error('Package contains reserved installation marker');
+  const src = controlledDirectory(process.cwd(), 'src');
+  const stage = createPluginInstallStage();
+  const staging = stage.directory;
+  let state: 'prepared' | 'committed' | 'closed' = 'prepared';
+  const cleanup = async (): Promise<void> => { if (state === 'prepared') state = 'closed'; stage.cleanup(); };
+  try {
+    for (const [name, data] of files) { const file = pluginPath(staging, name); fs.ensureDirSync(path.dirname(file)); fs.writeFileSync(file, data, { flag: 'wx', mode: 0o644 }); }
+    validatePluginEntry(staging, manifest.main);
+    for (const resource of [manifest.views, manifest.public]) if (resource) pluginPath(staging, resource);
+  } catch (error) { await cleanup(); throw error; }
+  return {
+    manifest: structuredClone(manifest), cleanup,
+    async commit(manager, options = {}) {
+      if (state !== 'prepared') throw new Error('Prepared install was already committed or cleaned up');
+      if (options.installationId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(options.installationId)) throw new Error('Invalid installation job UUID');
+      const { guardSqliteDatabase, sqliteTransaction } = await import('../core/database.js');
+      const database = guardSqliteDatabase(manager.database);
+      rejectSymlinks(staging);
+      const pluginsRoot = controlledDirectory(src, 'plugins');
+      const destination = assertUninstalled(manager, pluginsRoot, manifest.id);
+      let deployed = false;
+      try {
+        if (options.installationId) fs.writeJsonSync(path.join(staging, INSTALL_MARKER), { installationId: options.installationId }, { flag: 'wx', mode: 0o600 });
+        // The managed flow serializes jobs; synchronous recheck+rename also avoids local API races.
+        assertUninstalled(manager, pluginsRoot, manifest.id);
+        fs.rmSync(path.join(staging, STAGE_MARKER));
+        fs.renameSync(staging, destination); deployed = true; state = 'committed'; stage.detach();
+        await sqliteTransaction(database, () => {
+          if (options.installationId) ensureInstallOwnership(database);
+          const maxOrder = (database.prepare('SELECT COALESCE(MAX(load_order),0) AS m FROM plugins').get() as { m: number }).m;
+          database.prepare('INSERT INTO plugins(id,name,version,type,icon,description,enabled,load_order) VALUES(?,?,?,?,?,?,1,?)').run(manifest.id, manifest.name, manifest.version, manifest.type, manifest.icon ?? null, manifest.description ?? null, maxOrder + 10);
+          if (options.installationId) bindInstallOwnership(database, options.installationId, manifest);
+        });
+      } catch (error) {
+        if (deployed) fs.removeSync(destination);
+        state = 'closed'; stage.cleanup();
+        throw error;
+      }
+      return { id: manifest.id, name: manifest.name, version: manifest.version };
+    },
+  };
+}
+async function install(manager: PluginManager, source: PluginInstallSource): Promise<PluginInstallResult> {
+  const prepared = await preparePluginInstall(source);
+  try { return await prepared.commit(manager); } finally { await prepared.cleanup(); }
+}
+export async function installFromLpp(manager: PluginManager, buffer: Buffer): Promise<PluginInstallResult> { return install(manager, { kind: 'lpp', buffer }); }
+export async function installFromZip(manager: PluginManager, buffer: Buffer): Promise<PluginInstallResult> { return install(manager, { kind: 'zip', buffer }); }
+export async function installFromNpm(manager: PluginManager, spec: string): Promise<PluginInstallResult> { return install(manager, { kind: 'npm', spec }); }

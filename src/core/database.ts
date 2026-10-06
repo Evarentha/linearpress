@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -22,6 +23,7 @@
  */
 
 import { DatabaseSync } from 'node:sqlite';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import fs from 'fs-extra';
 import path from 'node:path';
 
@@ -31,7 +33,110 @@ fs.ensureDirSync(path.dirname(dbPath));
 export interface SqliteRunResult { lastInsertRowid?: number | bigint; changes?: number | bigint; }
 export interface SqliteStatement { run(...params: unknown[]): SqliteRunResult; get(...params: unknown[]): unknown; all(...params: unknown[]): unknown[]; }
 export interface SqliteDatabase { exec(sql: string): void; prepare(sql: string): SqliteStatement; close(): void; name: string; }
-export const db: SqliteDatabase = new DatabaseSync(dbPath) as unknown as SqliteDatabase;
+interface TransactionOwner { active: boolean; }
+interface DatabaseGuard {
+  native: SqliteDatabase;
+  owner?: TransactionOwner;
+  scope: AsyncLocalStorage<TransactionOwner | undefined>;
+  queue: Array<() => void>;
+}
+const guards = new WeakMap<SqliteDatabase, DatabaseGuard>();
+function busy(message: string): Error { return Object.assign(new Error(message), { code: 'SQLITE_BUSY' }); }
+function assertAccess(guard: DatabaseGuard): void {
+  const owner = guard.scope.getStore();
+  if (owner && !owner.active) throw busy('事务已结束，不能从遗留异步任务访问数据库');
+  if (guard.owner && owner !== guard.owner) throw busy('数据库正由另一异步事务使用，请 await databaseService 方法或稍后重试');
+}
+function assertManagedSql(sql: string): void {
+  // Strip quoted values and comments before checking every statement, including prepared SQL.
+  const plain = sql.replace(/'(?:''|[^'])*'|"(?:""|[^"])*"|`[^`]*`|\[[^\]]*\]|--[^\n]*|\/\*[\s\S]*?\*\//g, ' ');
+  const words = plain.match(/[a-z_][a-z0-9_]*|;/gi) ?? [];
+  let start = true; let prefix: string[] = []; let trigger = false; let triggerBody = false; let cases = 0;
+  for (const raw of words) {
+    const word = raw.toUpperCase();
+    if (trigger) {
+      if (word === 'BEGIN' && !triggerBody) triggerBody = true;
+      else if (triggerBody && word === 'CASE') cases++;
+      else if (triggerBody && word === 'END') {
+        if (cases) cases--; else { trigger = false; triggerBody = false; }
+      }
+      continue;
+    }
+    if (word === ';') { start = true; prefix = []; continue; }
+    if (start) {
+      if (['BEGIN', 'COMMIT', 'END', 'ROLLBACK', 'SAVEPOINT', 'RELEASE'].includes(word)) throw new Error('请使用 databaseService.transaction()，不能直接执行事务控制 SQL');
+      start = false;
+    }
+    if (prefix.length < 3) prefix.push(word);
+    // Trigger BEGIN/END delimit a program, not an application transaction.
+    if (prefix[0] === 'CREATE' && (prefix[1] === 'TRIGGER' || (['TEMP', 'TEMPORARY'].includes(prefix[1]) && prefix[2] === 'TRIGGER'))) trigger = true;
+  }
+}
+/** Never expose native DatabaseSync/StatementSync: even pre-created statements check ownership. */
+export function guardSqliteDatabase(native: SqliteDatabase): SqliteDatabase {
+  if (guards.has(native)) return native;
+  const guard: DatabaseGuard = { native, scope: new AsyncLocalStorage(), queue: [] };
+  const facade: SqliteDatabase = Object.freeze({
+    name: native.name,
+    exec(sql: string) { assertAccess(guard); assertManagedSql(sql); native.exec(sql); },
+    prepare(sql: string): SqliteStatement {
+      assertAccess(guard); assertManagedSql(sql);
+      const statement = native.prepare(sql);
+      return Object.freeze({
+        run(...params: unknown[]) { assertAccess(guard); return statement.run(...params); },
+        get(...params: unknown[]) { assertAccess(guard); return statement.get(...params); },
+        all(...params: unknown[]) { assertAccess(guard); return statement.all(...params); }
+      });
+    },
+    close() {
+      assertAccess(guard);
+      if (guard.owner || guard.queue.length) throw busy('不能在事务或排队操作期间关闭数据库');
+      native.close();
+    }
+  });
+  guards.set(facade, guard);
+  return facade;
+}
+function drain(guard: DatabaseGuard): void {
+  if (!guard.owner) guard.scope.run(undefined, () => guard.queue.shift()?.());
+}
+/** Ordinary awaitable service calls queue; synchronous raw/global access fails rather than joining. */
+export function sqliteOperation<T>(database: SqliteDatabase, callback: () => T): T | Promise<T> {
+  const guard = guards.get(database);
+  if (!guard) throw new Error('SQLite database must be guarded');
+  const owner = guard.scope.getStore();
+  if (owner) { assertAccess(guard); return callback(); }
+  if (!guard.owner && !guard.queue.length) return callback();
+  return new Promise<T>((resolve, reject) => {
+    guard.queue.push(() => { try { resolve(callback()); } catch (error) { reject(error); } finally { drain(guard); } });
+  });
+}
+/** Async callbacks remain supported, with strict ownership across all awaits. */
+export function sqliteTransaction<T>(database: SqliteDatabase, callback: () => T | Promise<T>): Promise<T> {
+  const guard = guards.get(database);
+  if (!guard) return Promise.reject(new Error('SQLite database must be guarded'));
+  if (guard.scope.getStore()) return Promise.reject(new Error('不支持嵌套或遗留任务事务'));
+  return new Promise<T>((resolve, reject) => {
+    const start = () => {
+      const owner: TransactionOwner = { active: true };
+      guard.owner = owner;
+      guard.scope.run(owner, async () => {
+        let began = false;
+        try {
+          guard.native.exec('BEGIN IMMEDIATE'); began = true;
+          const result = await callback();
+          guard.native.exec('COMMIT'); resolve(result);
+        } catch (error) {
+          if (began) { try { guard.native.exec('ROLLBACK'); } catch { /* preserve original error */ } }
+          reject(error);
+        } finally { owner.active = false; guard.owner = undefined; drain(guard); }
+      });
+    };
+    if (guard.owner || guard.queue.length) guard.queue.push(start);
+    else start();
+  });
+}
+export const db: SqliteDatabase = guardSqliteDatabase(new DatabaseSync(dbPath) as unknown as SqliteDatabase);
 db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
 
 /** 清理已过期的会话记录（启动时执行一次，并由 app 层定时调用）。 */
@@ -125,8 +230,6 @@ export function runMigrations(): void {
   if (systemAdmin) db.prepare('UPDATE users SET group_id=? WHERE group_id=? AND id<>?').run(editorGroup.id, systemAdmin.group_id, systemAdmin.id);
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_single_super_admin ON users(is_super_admin) WHERE is_super_admin = 1;');
 
-  // 兼容旧安装：已有超级管理员则视为已完成 OOBE，避免老站点被强制重新初始化。
-  if (db.prepare('SELECT id FROM users WHERE is_super_admin=1').get()) {
-    db.prepare("INSERT INTO settings(key,value) VALUES('oobeCompleted','1') ON CONFLICT(key) DO NOTHING").run();
-  }
+  // Account creation is only OOBE step 1. Only the explicit completion marker
+  // may skip the remaining wizard; an admin record is not proof of completion.
 }

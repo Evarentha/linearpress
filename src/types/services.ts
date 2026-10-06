@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -23,17 +24,23 @@
 
 import type session from 'express-session';
 import type { SqliteDatabase, SqliteRunResult } from '../core/database.js';
-import type { PluginInstallResult } from '../services/plugin-installer.js';
+import type { InstallJob } from '../core/plugin-install-jobs.js';
+import type { PluginChangeJob } from '../core/plugin-change-jobs.js';
 import type { Block, Comment, CommentStatus, Group, Plugin, Post, PostStatus, SiteConfig, User } from './index.js';
 
 export type MaybePromise<T> = T | Promise<T>;
 
 export interface DatabaseService {
+  /** Optional for older providers; set by current SQLite/MySQL drivers. */
+  dialect?: 'sqlite' | 'mysql';
+  /** SQLite raw/global calls are synchronous: competing transactions throw SQLITE_BUSY.
+   * Use the awaitable methods below to queue instead. Never issue raw transaction SQL. */
   raw: SqliteDatabase;
   all<T>(sql: string, ...params: unknown[]): MaybePromise<T[]>;
   get<T>(sql: string, ...params: unknown[]): MaybePromise<T | undefined>;
   run(sql: string, ...params: unknown[]): MaybePromise<SqliteRunResult>;
   exec(sql: string): MaybePromise<void>;
+  /** Callback may await. SQLite serializes unrelated service calls and rejects nested transactions. */
   transaction<T>(callback: () => MaybePromise<T>): MaybePromise<T>;
 }
 export type SessionStoreFactory = () => session.Store;
@@ -57,7 +64,7 @@ export interface PostService {
   findBySlug(slug: string): MaybePromise<Post | undefined>;
   list(): MaybePromise<Array<Post & { author_name: string }>>;
   listPublished(limit?: number, offset?: number): MaybePromise<Post[]>;
-  save(input: { id?: number; title: string; slug?: string; blocks: Block[]; status: PostStatus; authorId: number }): MaybePromise<Post>;
+  save(input: { id?: number; title: string; slug?: string; blocks: Block[]; status: PostStatus; authorId: number; postType?: 'post' | 'shuoshuo' }): MaybePromise<Post>;
   remove(id: number): MaybePromise<void>;
   incrementViews(id: number): MaybePromise<void>;
   generateSlug(value: string): string;
@@ -91,8 +98,10 @@ export interface PluginService {
   getConfig<T = unknown>(id: string): MaybePromise<T | null>;
   setConfig(id: string, config: unknown): MaybePromise<void>;
   uninstall(id: string): MaybePromise<void>;
-  installNpm(spec: string): MaybePromise<PluginInstallResult>;
-  installZip(buffer: Buffer): MaybePromise<PluginInstallResult>;
+  applyChange(change: {id:string;enabled:boolean}|{ids:string[]}): MaybePromise<{job:PluginChangeJob;statusUrl:string}>;
+  installNpm(spec: string): MaybePromise<{ job: InstallJob; statusUrl: string }>;
+  installZip(buffer: Buffer): MaybePromise<{ job: InstallJob; statusUrl: string }>;
+  installLpp(buffer: Buffer): MaybePromise<{ job: InstallJob; statusUrl: string }>;
 }
 export interface ConfigService {
   get(): MaybePromise<SiteConfig>;

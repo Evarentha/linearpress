@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -41,8 +42,17 @@ import { postUrl } from './permalinks.js';
 import { PluginManager } from './plugin-manager.js';
 import { RouterCollector } from './router-collector.js';
 import { SQLiteSessionStore } from './session-store.js';
+import { LifecycleSessionStore } from './lifecycle-session-store.js';
 import { LINEARPRESS_VERSION } from './version.js';
 import type { Post, SiteConfig } from '../types/index.js';
+import type { Server } from 'node:http';
+import { hasPendingInstall, verifyPendingInstall, runPluginInstallHousekeeping } from './plugin-install-jobs.js';
+import { hasPendingPluginChange, verifyPendingPluginChange } from './plugin-change-jobs.js';
+import { isRestartRequested, registerShutdown } from './restart.js';
+import { configureSupervisorProxy } from './supervisor-proxy.js';
+
+const disposers = new WeakMap<express.Express, () => Promise<void>>();
+const verifiers = new WeakMap<express.Express, () => Promise<void>>();
 
 const DEFAULT_ADMIN_MENU = [
   { title: '控制台', link: '/admin' },
@@ -74,6 +84,17 @@ function resolveSessionSecret(): string {
 
 export async function createApp() {
   const app = express();
+  configureSupervisorProxy(app);
+  // Once the journal exists, freeze all writes (including admin plugin/config
+  // mutations) until verification/recovery completes. Status polling stays readable.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && (hasPendingInstall() || hasPendingPluginChange())) {
+      res.setHeader('Retry-After', '2');
+      res.status(503).json({ ok: false, message: '插件安装验证进行中，请稍后重试。' });
+      return;
+    }
+    next();
+  });
   const hooks = new HookSystem();
   const router = new RouterCollector();
 
@@ -91,6 +112,8 @@ export async function createApp() {
   context.provide('database', db);
   context.provide('sessionStoreFactory', () => new SQLiteSessionStore(context.database));
 
+  try {
+  runPluginInstallHousekeeping();
   plugins.discover();
   await plugins.prebootAll();
 
@@ -104,7 +127,9 @@ export async function createApp() {
     catch { return 'LINEARPRESS'; }
   });
 
-  app.use(session({ store: context.sessionStoreFactory(), secret: resolveSessionSecret(), resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' ? 'auto' : false, maxAge: 1000 * 60 * 60 * 24 * 14 } }));
+  const sessionStore = new LifecycleSessionStore(() => context.sessionStoreFactory);
+  app.use(sessionStore.scope());
+  app.use(session({ store: sessionStore, secret: resolveSessionSecret(), resave: false, saveUninitialized: false, cookie: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' ? 'auto' : false, maxAge: 1000 * 60 * 60 * 24 * 14 } }));
 
   // CSRF 纵深防御：校验非安全方法的 Origin/Referer 是否属于本站。
   // SameSite=Lax 已拦截跨站 POST 携带 Cookie；此检查覆盖浏览器忽略 SameSite 的场景。
@@ -166,11 +191,10 @@ export async function createApp() {
 
   registerCoreRoutes(router, hooks, context);
   await plugins.activateAll();
+  // Verify only after private listen succeeds, but before publishing IPC ready.
+  verifiers.set(app, async () => { await verifyPendingInstall(plugins); await verifyPendingPluginChange(plugins); });
 
-  app.set('views', [...plugins.viewPaths].reverse().concat(path.join(process.cwd(), 'src', 'views')));
-  const staticGroups = new Map<string, string[]>();
-  for (const mount of plugins.staticMounts) staticGroups.set(mount.id, [...(staticGroups.get(mount.id) ?? []), mount.dir]);
-  for (const [id, dirs] of [...staticGroups.entries()].reverse()) app.use(`/plugins/${id}`, ...dirs.map((dir) => express.static(dir)));
+  plugins.mountStaticResources();
   app.use(express.static(path.join(process.cwd(), 'src', 'public')));
 
   app.use(async (req: Request, res: Response, next: NextFunction) => {
@@ -197,7 +221,7 @@ export async function createApp() {
     Object.assign(res.locals, locals);
     next();
   });
-  for (const middleware of plugins.middlewares) app.use(middleware);
+  plugins.mountMiddlewares();
   app.use('/admin', (_req: Request, res: Response, next: NextFunction) => { res.locals.layout = 'layouts/admin'; next(); });
   router.applyToApp(app);
   app.use((req: Request, res: Response) => res.status(404).render('error', { title: '未找到', message: '请求的页面不存在。' }));
@@ -212,30 +236,85 @@ export async function createApp() {
     res.status(500).type('html').send(maintenance.renderFatalPage());
   });
 
+  disposers.set(app, async () => {
+    try { await plugins.deactivateAll(); }
+    finally { setActiveContext(undefined); db.close(); }
+  });
   return app;
+  } catch (error) {
+    // Report the original failure before teardown (a broken plugin may hang there).
+    reportFailure(error);
+    try { await plugins.deactivateAll(); }
+    catch (cleanupError) { console.error('[LinearPress] Startup teardown:', cleanupError); }
+    setActiveContext(undefined);
+    throw error;
+  }
+}
+
+function reportFailure(error: unknown): void {
+  const message = error instanceof Error ? error.stack || error.message : String(error);
+  console.error('[LinearPress] Fatal error:', message);
+  maintenance.enter('fatal');
+  maintenance.dumpError(error);
+  if (process.connected) process.send?.({ type: 'linearpress:failed', message }, () => {});
 }
 
 export async function start(): Promise<void> {
-  if (process.env.LINEARPRESS_RESTART_CHILD === '1') await new Promise((resolve) => setTimeout(resolve, 700));
-
+  let server: Server | undefined;
+  let app: express.Express | undefined;
+  let sweeper: ReturnType<typeof setInterval> | undefined;
+  let closing: Promise<void> | undefined;
+  let shutdownRequested = false;
+  const shutdown = (): Promise<void> => {
+    shutdownRequested = true;
+    return closing ??= (async () => {
+      if (sweeper) clearInterval(sweeper);
+      // Do not dispose drivers/session stores until in-flight HTTP requests finish.
+      if (server) await new Promise<void>(resolve => { server!.close(() => resolve()); server!.closeIdleConnections(); });
+      if (app) await disposers.get(app)?.();
+    })();
+  };
+  registerShutdown(shutdown);
+  const exitGracefully = () => {
+    const timeout = setTimeout(() => process.exit(1), Number(process.env.LINEARPRESS_DRAIN_TIMEOUT_MS || 15000));
+    timeout.unref();
+    void shutdown().then(() => process.exit(0), error => { console.error(error); process.exit(1); });
+  };
+  process.on('SIGTERM', exitGracefully);
+  process.on('SIGINT', exitGracefully);
+  process.on('message', message => {
+    if (message && typeof message === 'object' && 'type' in message && message.type === 'linearpress:shutdown') exitGracefully();
+  });
+  if (process.env.LINEARPRESS_WORKER === '1') process.on('disconnect', exitGracefully);
   const onFatal = (error: unknown) => {
-    console.error('[LinearPress] Fatal error:', error);
-    maintenance.enter('fatal');
-    maintenance.dumpError(error);
+    reportFailure(error);
+    if (process.env.LINEARPRESS_WORKER === '1') exitGracefully();
   };
   process.on('uncaughtException', onFatal);
   process.on('unhandledRejection', onFatal);
-
   try {
-    const app = await createApp();
-    const port = Number(process.env.PORT ?? 3000);
-    // 定时清理过期会话（每小时），避免 sessions 表无限膨胀。
+    app = await createApp();
+    if (shutdownRequested || isRestartRequested()) { await disposers.get(app)?.(); return; }
     purgeExpiredSessions();
-    const sessionSweeper = setInterval(purgeExpiredSessions, 60 * 60 * 1000);
-    sessionSweeper.unref?.();
-    app.listen(port, () => console.log(`LinearPress running at http://localhost:${port}`));
+    sweeper = setInterval(purgeExpiredSessions, 60 * 60 * 1000);
+    sweeper.unref();
+    const supervised = process.env.LINEARPRESS_WORKER === '1';
+    const port = supervised ? 0 : Number(process.env.PORT ?? 3000);
+    const host = supervised ? '127.0.0.1' : process.env.HOST || '0.0.0.0';
+    server = await new Promise<Server>((resolve, reject) => {
+      const listener = app!.listen(port, host, () => resolve(listener));
+      listener.once('error', reject);
+    });
+    server.on('error', onFatal);
+    // Parent still serves maintenance. Never commit the job before listen succeeds.
+    await verifiers.get(app)?.();
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Worker HTTP address unavailable');
+    const bootId = crypto.randomUUID();
+    console.log(`LinearPress running at http://${host}:${address.port} pid=${process.pid} bootId=${bootId}`);
+    if (supervised && process.connected && !shutdownRequested && !isRestartRequested()) process.send?.({ type: 'linearpress:ready', port: address.port, bootId }, () => {});
   } catch (error) {
-    onFatal(error);
+    reportFailure(error);
     throw error;
   }
 }

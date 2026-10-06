@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -21,6 +22,7 @@
  */
 
 import type { HookName, HookPayloadMap } from '../types/hooks.js';
+import { assertRegistrationActive, bindLifecycle, currentPluginId, ownResource } from './lifecycle-scope.js';
 
 type Handler<K extends HookName> = { callback: (payload: HookPayloadMap[K]) => HookPayloadMap[K] | void | Promise<HookPayloadMap[K] | void>; priority: number; pluginId: string };
 
@@ -31,8 +33,11 @@ export class HookSystem {
   setCurrentPluginId(id: string): void { this.currentPluginId = id; }
 
   on<K extends HookName>(name: K, callback: Handler<K>['callback'], options: { priority?: number } = {}): void {
+    assertRegistrationActive();
     const list = (this.handlers.get(name) ?? []) as unknown as Handler<K>[];
-    list.push({ callback, priority: options.priority ?? 10, pluginId: this.currentPluginId });
+    const handler = { callback: bindLifecycle(callback), priority: options.priority ?? 10, pluginId: currentPluginId(this.currentPluginId) };
+    list.push(handler);
+    ownResource(() => { this.handlers.set(name, (this.handlers.get(name) ?? []).filter((item) => item !== handler)); });
     list.sort((a, b) => a.priority - b.priority);
     this.handlers.set(name, list as unknown as Handler<HookName>[]);
   }

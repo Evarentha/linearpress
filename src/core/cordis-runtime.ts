@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -20,6 +21,7 @@
  */
 
 import { Context, type Fiber } from 'cordis';
+import { withLifecycleScope } from './lifecycle-scope.js';
 
 export class CordisRuntime {
   readonly context = new Context();
@@ -27,10 +29,11 @@ export class CordisRuntime {
 
   async run<T>(pluginId: string, callback: (context: Context) => T | Promise<T>): Promise<T> {
     let result!: T;
-    const plugin = async (context: Context) => { result = await callback(context); };
+    const plugin = async (context: Context) => { result = await withLifecycleScope(pluginId, context, () => callback(context)); };
     Object.defineProperty(plugin, 'name', { value: `linearpress:${pluginId}` });
     const fiber = this.context.plugin(plugin);
-    await fiber;
+    try { await fiber; }
+    catch (error) { await fiber.dispose(); throw error; }
     const list = this.fibers.get(pluginId) ?? [];
     list.push(fiber);
     this.fibers.set(pluginId, list);
@@ -45,11 +48,15 @@ export class CordisRuntime {
   async dispose(pluginId: string): Promise<void> {
     const list = this.fibers.get(pluginId) ?? [];
     this.fibers.delete(pluginId);
-    for (const fiber of [...list].reverse()) await fiber.dispose();
+    const errors: unknown[] = [];
+    for (const fiber of [...list].reverse()) { try { await fiber.dispose(); } catch (error) { errors.push(error); } }
+    if (errors.length) throw new AggregateError(errors, `Failed to dispose plugin ${pluginId}`);
   }
 
   async disposeAll(): Promise<void> {
-    for (const pluginId of [...this.fibers.keys()].reverse()) await this.dispose(pluginId);
-    await this.context.fiber.dispose();
+    const errors: unknown[] = [];
+    for (const pluginId of [...this.fibers.keys()].reverse()) { try { await this.dispose(pluginId); } catch (error) { errors.push(error); } }
+    try { await this.context.fiber.dispose(); } catch (error) { errors.push(error); }
+    if (errors.length) throw new AggregateError(errors, 'Failed to dispose runtime');
   }
 }

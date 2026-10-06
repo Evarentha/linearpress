@@ -5,6 +5,7 @@
  *
  * Authors:
  * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
  *
  * Copyright (C) 2026 Evarentha
  * SPDX-License-Identifier: GPL-3.0-or-later
@@ -134,9 +135,10 @@ export class MaintenanceManager {
       ? `<ul class="m-tasks">${snapshot.tasks.map((task) => `<li><span>${esc(task.label)}</span>${task.status === 'done' ? '<em>完成</em>' : `<div class="m-bar"><i style="width:${Math.max(0, Math.min(100, task.progress))}%"></i></div>`}</li>`).join('')}</ul>`
       : `<p class="m-idle">当前没有正在执行的任务。</p>`;
     const html = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>维护模式 · ${esc(this.siteName())}</title><style>${MAINTENANCE_CSS}</style></head><body><main class="m-card"><p class="m-eyebrow">MAINTENANCE MODE</p><h1>${esc(this.siteName())} 已进入维护模式</h1><section class="m-panel"><h2>任务队列</h2>${tasksHtml}<p class="m-please">请稍后！</p></section><section class="m-why"><h2>为什么会遇到此页面？</h2><p>本站点正在进行维护，以防破坏程序或功能。在此期间，站点功能将不可用。不过请不要担心，您的个人数据仍然完好，并安全地保存在服务器中。</p><p>请耐心等待几分钟，然后刷新页面。如果问题仍然存在，请联系站点管理员。</p><p class="m-admin">您（或具有权限的用户）启动了更新/安装流程，或者程序持续运行中遇到了罕见技术错误。为保证数据安全，维护模式已启用。请查看 <code>logs</code> 目录下的日志以了解详情。</p></section></main></body></html>`;
+    const output = snapshot.reason === 'plugin' || snapshot.reason === 'update' ? html.replace('</body>', `${AUTO_RECOVER_SCRIPT}</body>`) : html;
     fs.ensureDirSync(path.dirname(STATIC_PAGE));
-    fs.writeFileSync(STATIC_PAGE, html);
-    return html;
+    fs.writeFileSync(STATIC_PAGE, output);
+    return output;
   }
 
   render(): string {
@@ -164,5 +166,7 @@ export class MaintenanceManager {
 }
 
 export const maintenance = new MaintenanceManager();
+
+export const AUTO_RECOVER_SCRIPT = `<script>(function(){var deadline=Date.now()+600000;var inFlight=false;async function check(){if(inFlight||Date.now()>deadline)return;inFlight=true;var abort=new AbortController();var timeout=setTimeout(function(){abort.abort()},4000);try{var response=await fetch('/__linearpress/ready',{cache:'no-store',signal:abort.signal});var state=await response.json();if(response.ok&&state.ready===true){location.reload();return;}}catch(_){}finally{clearTimeout(timeout);inFlight=false;}setTimeout(check,2000);}setTimeout(check,1000);})();</script>`;
 
 const MAINTENANCE_CSS = `*{box-sizing:border-box}body{margin:0;background:#0f0f0f;color:#eee;font-family:Arial,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}.m-card{max-width:760px;width:100%}.m-eyebrow{font-size:11px;letter-spacing:.18em;color:#888}.m-card h1{font:400 clamp(30px,6vw,56px) Georgia,serif;margin:18px 0 30px;line-height:1}.m-panel{border:1px solid #333;background:#161616;padding:24px;margin-bottom:26px}.m-panel h2,.m-why h2{font:400 20px Georgia,serif;margin:0 0 18px;color:#ddd}.m-tasks{list-style:none;margin:0 0 20px;padding:0}.m-tasks li{display:flex;justify-content:space-between;gap:16px;align-items:center;border-bottom:1px solid #262626;padding:13px 0;font-size:14px}.m-tasks li em{font-style:normal;color:#7bc47f}.m-bar{flex:1;max-width:240px;height:8px;background:#2a2a2a;border-radius:99px;overflow:hidden}.m-bar i{display:block;height:100%;background:#eee;transition:width .3s}.m-please{color:#bbb;font-size:15px}.m-why{color:#999;line-height:1.8;font-size:14px}.m-why p{margin:0 0 14px}.m-admin{border-left:3px solid #555;padding-left:14px;color:#bbb}.m-why code{background:#1f1f1f;padding:2px 7px;border-radius:4px;color:#ddd}`;

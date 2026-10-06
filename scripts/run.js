@@ -1,3 +1,16 @@
+/*
+ * LinearPress Run
+ *
+ * Implements the run module for LinearPress.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';

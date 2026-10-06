@@ -1,4 +1,15 @@
 #!/usr/bin/env sh
+# LinearPress Sync Plugins
+#
+# Implements the sync plugins module for LinearPress.
+#
+# Authors:
+# MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+# worryzu <worryzu@gmail.com> @LinearTeam
+#
+# Copyright (C) 2026 Evarentha
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 #
 # LinearPress Plugin Workspace Sync Script
 #

@@ -1,14 +1,16 @@
 /*
-  Default Web Theme Stylesheet
+ * Default Web Theme Stylesheet
+ *
+ * Styles for the default public-facing theme.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
-  Styles for the default public-facing theme.
-
-  Authors:
-  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
-
-  Copyright (C) 2026 Evarentha
-  SPDX-License-Identifier: GPL-3.0-or-later
-*/
 /*
   Stylesheet for public pages: site header and navigation, the intro
   hero, post list rows, article typography with blockquotes and

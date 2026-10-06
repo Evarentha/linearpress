@@ -13,6 +13,9 @@ src/plugins/*
 !src/plugins/seo/
 !src/plugins/minimal-theme/
 
+# Installer-owned temporary staging (never publish plugins or runtime ownership records here)
+src/.plugin-install-staging/
+
 # 运行时日志
 .logs/
 logs/

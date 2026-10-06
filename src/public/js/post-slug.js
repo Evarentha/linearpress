@@ -1,14 +1,16 @@
 /*
-  Post Slug Generator
+ * Post Slug Generator
+ *
+ * Frontend logic for generating post slugs from titles.
+ *
+ * Authors:
+ * MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
+ * worryzu <worryzu@gmail.com> @LinearTeam
+ *
+ * Copyright (C) 2026 Evarentha
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
-  Frontend logic for generating post slugs from titles.
-
-  Authors:
-  MoyuZJ <moyuzj@moyuzj.cn> @LinearTeam - Made in China with ♥
-
-  Copyright (C) 2026 Evarentha
-  SPDX-License-Identifier: GPL-3.0-or-later
-*/
 /**
   Generates a URL-friendly slug from the post title by Unicode
   normalization, mark stripping, lowercasing and hyphen separation.
